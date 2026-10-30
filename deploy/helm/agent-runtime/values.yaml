@@ -1,0 +1,141 @@
+# release.yml bumps image.tag and agentSpec.version.
+image:
+  repository: ghcr.io/jahnavi-yelamanchi/agent-runtime
+  tag: "0.1.0"
+  pullPolicy: IfNotPresent
+
+replicaCount: 4
+revisionHistoryLimit: 5
+
+# canary | blueGreen
+strategy: canary
+
+canary:
+  steps:
+    - setWeight: 10
+    - pause: {duration: 2m}
+    - analysis: {}          # expanded to the AnalysisTemplates below
+    - setWeight: 25
+    - pause: {duration: 2m}
+    - setWeight: 50
+    - pause: {duration: 2m}
+    - analysis: {}
+    - setWeight: 100
+  maxSurge: "25%"
+  maxUnavailable: 0
+
+blueGreen:
+  autoPromotionEnabled: false
+  scaleDownDelaySeconds: 60
+  previewReplicaCount: 1
+
+analysis:
+  prometheusAddress: http://kube-prometheus-stack-prometheus.monitoring.svc:9090
+  window: 5m
+  interval: 1m
+  count: 3
+  failureLimit: 1
+  thresholds:
+    evalScoreMin: 0.80
+    p95LatencySecondsMax: 8
+    costPerTaskUsdMax: 0.03
+    errorRateMax: 0.05
+
+istio:
+  enabled: true
+  host: agent-runtime
+  gateways: []              # e.g. [istio-system/adcp-gateway]
+  externalHosts: []         # e.g. [agents.example.com]
+
+agentSpec:
+  name: support-agent
+  version: "1"
+  # Mounted at /etc/adcp/spec.yaml; runtime reads AGENT_SPEC_PATH.
+  spec:
+    name: support-agent
+    version: "1"
+    system_prompt: |
+      You are a customer support agent for an airline and a retailer. Use tools; never invent policy.
+    model_id: claude-sonnet-5-5
+    provider: anthropic
+    tools: []
+    context_strategy: full
+    params:
+      max_tokens: 1024
+      prompt_caching: true
+      max_steps: 8
+      timeout_s: 30
+    budget:
+      max_cost_usd_per_run: 0.05
+      max_latency_ms: 15000
+
+env:
+  MODEL_PROVIDER: mock
+  BACKEND: services
+  ADCP_BACKEND: services
+  MLFLOW_TRACKING_URI: http://mlflow.data.svc:5000
+  REDIS_URL: redis://redis.data.svc:6379/0
+  KAFKA_BOOTSTRAP: redpanda.data.svc:9092
+  POSTGRES_DSN: postgresql://adcp:adcp@postgres.data.svc:5432/adcp
+extraEnv: []
+
+otel:
+  endpoint: http://otel-collector.monitoring.svc:4318
+  protocol: http/protobuf
+  resourceAttributes: "deployment.environment=dev"
+
+flagd:
+  # sidecar: flagd container in the pod reading the flags ConfigMap (FLAGD_HOST=localhost)
+  # remote: shared flagd Service (FLAGD_HOST=flagd.agents.svc)
+  mode: sidecar
+  image: ghcr.io/open-feature/flagd:v0.11.5
+  port: 8013
+  remoteHost: flagd.agents.svc
+  # Source of truth is flags/flags.flagd.json, passed as
+  # `--set-file flagd.flagsJson=flags/flags.flagd.json` (Argo CD: fileParameters).
+  # `flags` below is the fallback when flagsJson is empty.
+  flagsJson: ""
+  flags:
+    $schema: https://flagd.dev/schema/v0/flags.json
+    flags:
+      tool-issue-refund:
+        state: ENABLED
+        variants: {"on": true, "off": false}
+        defaultVariant: "off"
+        targeting:
+          if:
+            - and:
+                - {"==": [{"var": "track"}, "canary"]}
+                - {">=": [{"var": "rolloutStep"}, 2]}
+            - "on"
+            - "off"
+      context-strategy:
+        state: ENABLED
+        variants: {full: full, summarized: summarized, retrieved: retrieved}
+        defaultVariant: full
+
+serviceAccount:
+  create: true
+  name: agent-runtime
+  # aws: IRSA role from terraform/aws output runtime_role_arn
+  # azure: Entra workload identity client id from terraform/azure output runtime_client_id
+  cloud: none   # none | aws | azure
+  awsRoleArn: ""
+  azureClientId: ""
+  annotations: {}
+
+podLabels: {}
+podAnnotations: {}
+
+resources:
+  requests: {cpu: 250m, memory: 512Mi}
+  limits: {memory: 1Gi}
+
+autoscaling:
+  enabled: false
+  minReplicas: 4
+  maxReplicas: 12
+  targetCPUUtilizationPercentage: 70
+
+nodeSelector: {}
+tolerations: []

@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: agent-spec
+  labels:
+    {{- include "ar.labels" . | nindent 4 }}
+    adcp.dev/agent-version: {{ .Values.agentSpec.version | quote }}
+data:
+  spec.yaml: |
+    {{- $spec := merge (dict "name" .Values.agentSpec.name "version" (toString .Values.agentSpec.version)) .Values.agentSpec.spec }}
+    {{- toYaml $spec | nindent 4 }}
+---
+{{- if eq .Values.flagd.mode "sidecar" }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: agent-runtime-flags
+  labels:
+    {{- include "ar.labels" . | nindent 4 }}
+data:
+  flags.flagd.json: |
+    {{- if .Values.flagd.flagsJson }}
+    {{- .Values.flagd.flagsJson | nindent 4 }}
+    {{- else }}
+    {{- toPrettyJson .Values.flagd.flags | nindent 4 }}
+    {{- end }}
+{{- end }}

@@ -1,0 +1,31 @@
+image:
+  repository: ghcr.io/jahnavi-yelamanchi/agent-runtime
+  tag: "0.1.0"
+  pullPolicy: IfNotPresent
+
+# Namespace holding the agent-runtime Rollout the controller may abort / promote.
+rolloutNamespace: agents
+rolloutName: agent-runtime
+
+env:
+  MODEL_PROVIDER: mock
+  BACKEND: services
+  ADCP_BACKEND: services
+  PROMETHEUS_URL: http://kube-prometheus-stack-prometheus.monitoring.svc:9090
+  KAFKA_BOOTSTRAP: redpanda.data.svc:9092
+  MLFLOW_TRACKING_URI: http://mlflow.data.svc:5000
+  REDIS_URL: redis://redis.data.svc:6379/0
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector.monitoring.svc:4318
+
+controller:
+  replicas: 1
+  resources:
+    requests: {cpu: 50m, memory: 256Mi}
+    limits: {memory: 512Mi}
+
+evaluator:
+  enabled: true
+  replicas: 1
+  resources:
+    requests: {cpu: 100m, memory: 256Mi}
+    limits: {memory: 512Mi}

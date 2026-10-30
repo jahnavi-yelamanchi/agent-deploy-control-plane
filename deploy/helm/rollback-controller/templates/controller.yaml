@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rollback-controller
+  labels:
+    {{- include "rc.labels" . | nindent 4 }}
+    app: rollback-controller
+spec:
+  replicas: {{ .Values.controller.replicas }}
+  selector:
+    matchLabels: {app: rollback-controller}
+  template:
+    metadata:
+      labels: {app: rollback-controller}
+    spec:
+      serviceAccountName: rollback-controller
+      securityContext: {runAsNonRoot: true, runAsUser: 10001, seccompProfile: {type: RuntimeDefault}}
+      containers:
+        - name: controller
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["python", "-m", "adcp.rollback.service"]
+          env:
+            {{- include "rc.env" . | nindent 12 }}
+            - {name: OTEL_SERVICE_NAME, value: rollback-controller}
+          ports:
+            - {name: http, containerPort: 8090}
+          readinessProbe:
+            httpGet: {path: /healthz, port: http}
+          livenessProbe:
+            httpGet: {path: /healthz, port: http}
+            initialDelaySeconds: 10
+          resources:
+            {{- toYaml .Values.controller.resources | nindent 12 }}
+          securityContext:
+            {{- include "rc.securityContext" . | nindent 12 }}
+          volumeMounts:
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - {name: tmp, emptyDir: {}}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rollback-controller
+  labels:
+    {{- include "rc.labels" . | nindent 4 }}
+spec:
+  selector: {app: rollback-controller}
+  ports:
+    - {name: http, port: 8090, targetPort: http}

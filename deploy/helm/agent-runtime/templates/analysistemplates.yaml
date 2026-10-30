@@ -1,0 +1,46 @@
+{{- $a := .Values.analysis }}
+{{- $t := $a.thresholds }}
+{{- $sel := `track="{{args.track}}",agent_version="{{args.agent-version}}"` }}
+{{- $tpls := list
+  (dict "name" "agent-eval-score"
+        "metric" "eval-score"
+        "query" (printf `sum(rate(adcp_eval_score_sum{%s}[%s])) / sum(rate(adcp_eval_score_count{%s}[%s]))` $sel $a.window $sel $a.window)
+        "success" (printf "len(result) > 0 && result[0] >= %v" $t.evalScoreMin))
+  (dict "name" "agent-latency-p95"
+        "metric" "latency-p95"
+        "query" (printf `histogram_quantile(0.95, sum by (le) (rate(adcp_run_duration_seconds_bucket{%s}[%s])))` $sel $a.window)
+        "success" (printf "len(result) > 0 && result[0] <= %v" $t.p95LatencySecondsMax))
+  (dict "name" "agent-cost-per-task"
+        "metric" "cost-per-task"
+        "query" (printf `sum(rate(adcp_run_cost_usd_total{%s}[%s])) / sum(rate(adcp_runs_total{%s}[%s]))` $sel $a.window $sel $a.window)
+        "success" (printf "len(result) > 0 && result[0] <= %v" $t.costPerTaskUsdMax))
+  (dict "name" "agent-error-rate"
+        "metric" "error-rate"
+        "query" (printf `(sum(rate(adcp_runs_total{%s,status!="ok"}[%s])) or vector(0)) / sum(rate(adcp_runs_total{%s}[%s]))` $sel $a.window $sel $a.window)
+        "success" (printf "len(result) == 0 || isNaN(result[0]) || result[0] <= %v" $t.errorRateMax))
+}}
+{{- range $tpls }}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: {{ .name }}
+  labels:
+    {{- include "ar.labels" $ | nindent 4 }}
+spec:
+  args:
+    - name: track
+      value: canary
+    - name: agent-version
+  metrics:
+    - name: {{ .metric }}
+      interval: {{ $a.interval }}
+      count: {{ $a.count }}
+      failureLimit: {{ $a.failureLimit }}
+      consecutiveErrorLimit: 2
+      successCondition: {{ .success | quote }}
+      provider:
+        prometheus:
+          address: {{ $a.prometheusAddress }}
+          query: {{ .query | quote }}
+{{- end }}

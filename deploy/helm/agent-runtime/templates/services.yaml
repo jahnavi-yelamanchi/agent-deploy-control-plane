@@ -1,0 +1,21 @@
+{{- $names := list "agent-runtime" }}
+{{- if eq .Values.strategy "canary" }}
+{{- $names = concat $names (list "agent-runtime-stable" "agent-runtime-canary") }}
+{{- else }}
+{{- $names = concat $names (list "agent-runtime-active" "agent-runtime-preview") }}
+{{- end }}
+{{- range $names }}
+---
+# Argo Rollouts injects rollouts-pod-template-hash into the selector of all but agent-runtime.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ . }}
+  labels:
+    {{- include "ar.labels" $ | nindent 4 }}
+spec:
+  selector:
+    {{- include "ar.selector" $ | nindent 4 }}
+  ports:
+    - {name: http, port: 8080, targetPort: http, protocol: TCP}
+{{- end }}

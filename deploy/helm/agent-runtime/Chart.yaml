@@ -1,0 +1,6 @@
+apiVersion: v2
+name: agent-runtime
+description: Agent runtime (AgentSpec) with Argo Rollouts canary or blue-green, Istio routing, Prometheus analysis.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

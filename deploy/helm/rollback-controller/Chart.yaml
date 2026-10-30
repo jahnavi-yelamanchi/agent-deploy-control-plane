@@ -1,0 +1,6 @@
+apiVersion: v2
+name: rollback-controller
+description: Pareto multi-objective rollback controller (patches Argo Rollouts) and online evaluator (Kafka consumer).
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

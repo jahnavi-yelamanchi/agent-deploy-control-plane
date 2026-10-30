@@ -1,0 +1,181 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: {{ include "ar.name" . }}
+  labels:
+    {{- include "ar.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  revisionHistoryLimit: {{ .Values.revisionHistoryLimit }}
+  selector:
+    matchLabels:
+      {{- include "ar.selector" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "ar.selector" . | nindent 8 }}
+        adcp.dev/agent-version: {{ .Values.agentSpec.version | quote }}
+        {{- if eq .Values.serviceAccount.cloud "azure" }}
+        azure.workload.identity/use: "true"
+        {{- end }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      annotations:
+        checksum/agent-spec: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        sidecar.istio.io/inject: "true"
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ include "ar.saName" . }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        fsGroup: 10001
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: runtime
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - {name: http, containerPort: 8080, protocol: TCP}
+          env:
+            - {name: AGENT_SPEC_PATH, value: /etc/adcp/spec.yaml}
+            - {name: ADCP_TRACK_LABELS_FILE, value: /etc/podinfo/labels}
+            - {name: AGENT_VERSION, value: {{ .Values.agentSpec.version | quote }}}
+            - name: POD_NAME
+              valueFrom: {fieldRef: {fieldPath: metadata.name}}
+            - name: ROLLOUTS_POD_TEMPLATE_HASH
+              valueFrom: {fieldRef: {fieldPath: "metadata.labels['rollouts-pod-template-hash']"}}
+            {{- range $k, $v := .Values.env }}
+            - {name: {{ $k }}, value: {{ $v | quote }}}
+            {{- end }}
+            - name: FLAGD_HOST
+              value: {{ if eq .Values.flagd.mode "sidecar" }}localhost{{ else }}{{ .Values.flagd.remoteHost }}{{ end }}
+            - {name: FLAGD_PORT, value: {{ .Values.flagd.port | quote }}}
+            - {name: OTEL_SERVICE_NAME, value: agent-runtime}
+            - {name: OTEL_EXPORTER_OTLP_ENDPOINT, value: {{ .Values.otel.endpoint | quote }}}
+            - {name: OTEL_EXPORTER_OTLP_PROTOCOL, value: {{ .Values.otel.protocol | quote }}}
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: "service.version={{ .Values.agentSpec.version }},k8s.pod.name=$(POD_NAME),{{ .Values.otel.resourceAttributes }}"
+            - {name: OTEL_SEMCONV_STABILITY_OPT_IN, value: gen_ai_latest_experimental}
+            {{- with .Values.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          readinessProbe:
+            httpGet: {path: /readyz, port: http}
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: {path: /healthz, port: http}
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          volumeMounts:
+            - {name: agent-spec, mountPath: /etc/adcp, readOnly: true}
+            - {name: tmp, mountPath: /tmp}
+            # Live pod labels; adcp.dev/track flips canary->stable on promotion.
+            - {name: podinfo, mountPath: /etc/podinfo, readOnly: true}
+        {{- if eq .Values.flagd.mode "sidecar" }}
+        - name: flagd
+          image: {{ .Values.flagd.image }}
+          args: ["start", "--uri", "file:/etc/flagd/flags.flagd.json", "--port", "{{ .Values.flagd.port }}"]
+          ports:
+            - {name: flagd, containerPort: {{ .Values.flagd.port }}}
+          resources:
+            requests: {cpu: 20m, memory: 32Mi}
+            limits: {memory: 64Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          volumeMounts:
+            - {name: flags, mountPath: /etc/flagd, readOnly: true}
+        {{- end }}
+      volumes:
+        - name: agent-spec
+          configMap: {name: agent-spec}
+        - name: tmp
+          emptyDir: {}
+        - name: podinfo
+          downwardAPI:
+            items:
+              - {path: labels, fieldRef: {fieldPath: metadata.labels}}
+        {{- if eq .Values.flagd.mode "sidecar" }}
+        - name: flags
+          configMap: {name: agent-runtime-flags}
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+  strategy:
+    {{- if eq .Values.strategy "canary" }}
+    canary:
+      stableService: agent-runtime-stable
+      canaryService: agent-runtime-canary
+      # Track labels: chaos/litmus targets adcp.dev/track=canary.
+      canaryMetadata:
+        labels: {adcp.dev/track: canary}
+      stableMetadata:
+        labels: {adcp.dev/track: stable}
+      maxSurge: {{ .Values.canary.maxSurge | quote }}
+      maxUnavailable: {{ .Values.canary.maxUnavailable }}
+      {{- if .Values.istio.enabled }}
+      trafficRouting:
+        istio:
+          virtualService:
+            name: agent-runtime
+            routes: [primary]
+          destinationRule:
+            name: agent-runtime
+            canarySubsetName: canary
+            stableSubsetName: stable
+      {{- end }}
+      steps:
+        {{- range .Values.canary.steps }}
+        {{- if hasKey . "analysis" }}
+        - analysis:
+            templates:
+              {{- include "ar.analysisTemplates" $ | nindent 14 }}
+            args:
+              {{- include "ar.analysisArgs" (dict "track" "canary" "version" $.Values.agentSpec.version) | nindent 14 }}
+        {{- else }}
+        - {{ toYaml . | nindent 10 | trim }}
+        {{- end }}
+        {{- end }}
+    {{- else if eq .Values.strategy "blueGreen" }}
+    blueGreen:
+      activeService: agent-runtime-active
+      previewService: agent-runtime-preview
+      previewMetadata:
+        labels: {adcp.dev/track: canary}
+      activeMetadata:
+        labels: {adcp.dev/track: stable}
+      autoPromotionEnabled: {{ .Values.blueGreen.autoPromotionEnabled }}
+      scaleDownDelaySeconds: {{ .Values.blueGreen.scaleDownDelaySeconds }}
+      previewReplicaCount: {{ .Values.blueGreen.previewReplicaCount }}
+      prePromotionAnalysis:
+        templates:
+          {{- include "ar.analysisTemplates" . | nindent 10 }}
+        args:
+          {{- include "ar.analysisArgs" (dict "track" "canary" "version" .Values.agentSpec.version) | nindent 10 }}
+      postPromotionAnalysis:
+        templates:
+          - templateName: agent-error-rate
+        args:
+          {{- include "ar.analysisArgs" (dict "track" "stable" "version" .Values.agentSpec.version) | nindent 10 }}
+    {{- else }}
+    {{- fail "strategy must be canary or blueGreen" }}
+    {{- end }}

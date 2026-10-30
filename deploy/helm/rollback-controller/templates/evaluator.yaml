@@ -1,0 +1,35 @@
+{{- if .Values.evaluator.enabled }}
+# Online evaluator: consumes agent.runs, scores, emits adcp_eval_score + agent.evals.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: evaluator
+  labels:
+    {{- include "rc.labels" . | nindent 4 }}
+    app: evaluator
+spec:
+  replicas: {{ .Values.evaluator.replicas }}
+  selector:
+    matchLabels: {app: evaluator}
+  template:
+    metadata:
+      labels: {app: evaluator}
+    spec:
+      securityContext: {runAsNonRoot: true, runAsUser: 10001, seccompProfile: {type: RuntimeDefault}}
+      containers:
+        - name: evaluator
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["python", "-m", "adcp.evals.online"]
+          env:
+            {{- include "rc.env" . | nindent 12 }}
+            - {name: OTEL_SERVICE_NAME, value: evaluator}
+          resources:
+            {{- toYaml .Values.evaluator.resources | nindent 12 }}
+          securityContext:
+            {{- include "rc.securityContext" . | nindent 12 }}
+          volumeMounts:
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - {name: tmp, emptyDir: {}}
+{{- end }}
