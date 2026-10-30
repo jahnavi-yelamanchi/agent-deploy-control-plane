@@ -1,0 +1,57 @@
+# Prometheus. Required flags (set in compose/helm):
+#   --web.enable-remote-write-receiver        Tempo metrics-generator pushes here
+#   --enable-feature=exemplar-storage         trace exemplars on latency panels
+#   --config.file=/etc/prometheus/prometheus.yml  (rules/ mounted alongside)
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: local
+
+rule_files:
+  - rules/*.yml
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: [localhost:9090]
+
+  # adcp_* and gen_ai_* metrics from the OTLP pipeline. honor_labels keeps
+  # job/instance derived from service.name/service.instance.id.
+  - job_name: otel-collector
+    honor_labels: true
+    static_configs:
+      - targets: [otel-collector:8889]
+
+  - job_name: otel-collector-internal
+    static_configs:
+      - targets: [otel-collector:8888]
+
+  - job_name: runtime
+    metrics_path: /metrics
+    static_configs:
+      - targets: [runtime:8080]
+        labels:
+          service: agent-runtime
+
+  - job_name: rollback-controller
+    metrics_path: /metrics
+    static_configs:
+      - targets: [rollback-controller:8090]
+        labels:
+          service: rollback-controller
+
+  # vllm:prefix_cache_hits_total, vllm:prefix_cache_queries_total, vllm:gpu_cache_usage_perc.
+  # Optional service; target is down when vllm is not started.
+  - job_name: vllm
+    metrics_path: /metrics
+    static_configs:
+      - targets: [vllm:8000]
+
+  - job_name: tempo
+    static_configs:
+      - targets: [tempo:3200]
+
+  - job_name: loki
+    static_configs:
+      - targets: [loki:3100]

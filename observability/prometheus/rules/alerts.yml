@@ -1,0 +1,50 @@
+# Canary guardrail alerts. The rollback controller acts on the same signals;
+# these exist for humans and for the audit trail.
+groups:
+  - name: adcp-canary
+    rules:
+      - alert: AdcpCanaryEvalRegression
+        expr: adcp:eval_score:canary_minus_stable5m < -0.05
+        for: 5m
+        labels:
+          severity: page
+          track: canary
+        annotations:
+          summary: Canary eval score is {{ $value | printf "%.3f" }} below stable.
+
+      - alert: AdcpCanaryCostSpike
+        expr: |
+          adcp:cost_per_task:canary_over_stable5m > 1.25
+            or adcp:cost_per_task:rate5m{track="canary"} > 0.03
+        for: 5m
+        labels:
+          severity: ticket
+          track: canary
+        annotations:
+          summary: Canary cost per task above 1.25x stable or $0.03.
+
+      - alert: AdcpCanaryLatencyRegression
+        expr: adcp:latency_p95:canary_over_stable5m > 1.5
+        for: 5m
+        labels:
+          severity: ticket
+          track: canary
+        annotations:
+          summary: Canary p95 latency {{ $value | printf "%.2f" }}x stable.
+
+  - name: adcp-rollback
+    rules:
+      - alert: AdcpRollbackExecuted
+        expr: sum by (reason) (increase(adcp_rollback_events_total{decision="rollback"}[5m])) > 0
+        labels:
+          severity: ticket
+        annotations:
+          summary: "Automated rollback executed: {{ $labels.reason }}"
+
+      # Pareto trade-off (canary better on some objectives, worse on others).
+      - alert: AdcpRollbackNeedsHuman
+        expr: sum by (reason) (increase(adcp_rollback_events_total{decision="needs_human"}[10m])) > 0
+        labels:
+          severity: page
+        annotations:
+          summary: "Canary is a Pareto trade-off; promotion needs a human: {{ $labels.reason }}"

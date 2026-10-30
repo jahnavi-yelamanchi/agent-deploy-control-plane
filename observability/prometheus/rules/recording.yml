@@ -1,0 +1,91 @@
+# Canary vs stable signals. Consumed by Argo Rollouts AnalysisTemplates
+# (query `<rule>{track="canary"}`), the rollback controller and Grafana.
+# Denominators use `> 0` so an idle arm yields no sample instead of NaN/0.
+groups:
+  - name: adcp-arms
+    interval: 30s
+    rules:
+      - record: adcp:runs:rate5m
+        expr: sum by (track) (rate(adcp_runs_total[5m]))
+
+      - record: adcp:cost_per_task:rate5m
+        expr: |
+          sum by (track) (rate(adcp_run_cost_usd_total[5m]))
+            / (sum by (track) (rate(adcp_runs_total[5m])) > 0)
+
+      - record: adcp:latency_p50:5m
+        expr: histogram_quantile(0.50, sum by (track, le) (rate(adcp_run_duration_seconds_bucket[5m])))
+
+      - record: adcp:latency_p95:5m
+        expr: histogram_quantile(0.95, sum by (track, le) (rate(adcp_run_duration_seconds_bucket[5m])))
+
+      - record: adcp:eval_score:mean5m
+        expr: |
+          sum by (track) (rate(adcp_eval_score_sum[5m]))
+            / (sum by (track) (rate(adcp_eval_score_count[5m])) > 0)
+
+      # status="error" only; budget_exceeded is covered by the cost SLO.
+      - record: adcp:error_ratio:rate5m
+        expr: |
+          (
+            sum by (track) (rate(adcp_runs_total{status="error"}[5m]))
+            or 0 * sum by (track) (rate(adcp_runs_total[5m]))
+          )
+            / (sum by (track) (rate(adcp_runs_total[5m])) > 0)
+
+      # Prompt-cache hit ratio: cache_read / all prompt-side tokens.
+      - record: adcp:cache_hit_ratio:rate5m
+        expr: |
+          sum by (track) (rate(adcp_tokens_total{type="cache_read"}[5m]))
+            / (sum by (track) (rate(adcp_tokens_total{type=~"input|cache_read|cache_write"}[5m])) > 0)
+
+      - record: adcp:tool_error_ratio:rate5m
+        expr: |
+          (
+            sum by (track) (rate(adcp_tool_calls_total{status="error"}[5m]))
+            or 0 * sum by (track) (rate(adcp_tool_calls_total[5m]))
+          )
+            / (sum by (track) (rate(adcp_tool_calls_total[5m])) > 0)
+
+      - record: adcp:tokens:rate5m
+        expr: sum by (track, type) (rate(adcp_tokens_total[5m]))
+
+  - name: adcp-canary-vs-stable
+    interval: 30s
+    rules:
+      # >1 means canary costs more per task than stable.
+      - record: adcp:cost_per_task:canary_over_stable5m
+        expr: |
+          adcp:cost_per_task:rate5m{track="canary"}
+            / ignoring (track) (adcp:cost_per_task:rate5m{track="stable"} > 0)
+
+      - record: adcp:latency_p95:canary_over_stable5m
+        expr: |
+          adcp:latency_p95:5m{track="canary"}
+            / ignoring (track) (adcp:latency_p95:5m{track="stable"} > 0)
+
+      # <0 means canary scores lower than stable.
+      - record: adcp:eval_score:canary_minus_stable5m
+        expr: |
+          adcp:eval_score:mean5m{track="canary"}
+            - ignoring (track) adcp:eval_score:mean5m{track="stable"}
+
+  - name: vllm
+    interval: 30s
+    rules:
+      # vLLM automatic prefix caching (KV-cache block reuse).
+      - record: vllm:prefix_cache_hit_ratio:rate5m
+        expr: |
+          sum by (model_name) (rate(vllm:prefix_cache_hits_total[5m]))
+            / (sum by (model_name) (rate(vllm:prefix_cache_queries_total[5m])) > 0)
+
+  - name: genai-semconv
+    interval: 30s
+    rules:
+      - record: gen_ai:token_usage:rate5m
+        expr: sum by (gen_ai_request_model, gen_ai_token_type) (rate(gen_ai_client_token_usage_sum[5m]))
+
+      - record: gen_ai:operation_duration_p95:5m
+        expr: |
+          histogram_quantile(0.95,
+            sum by (gen_ai_request_model, gen_ai_operation_name, le) (rate(gen_ai_client_operation_duration_bucket[5m])))
