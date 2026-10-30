@@ -1,0 +1,101 @@
+# Sloth spec (prometheus/v1). Rendered without Sloth by scripts/gen_slo_rules.py
+# into observability/prometheus/rules/slo-generated.yml (`make slo-rules`).
+# 30d rolling window. Burn thresholds 14.4/6/3/1 (SRE workbook); with objective 90
+# a 14.4x burn needs >100% errors, so quality pages only via the 6x pair.
+# Alert names: <alerting.name>Page / <alerting.name>Ticket.
+# Histogram SLIs need bucket bounds 8 (adcp_run_duration_seconds) and 0.7 (adcp_eval_score).
+version: prometheus/v1
+service: agent-runtime
+labels:
+  owner: platform
+  repo: agent-deploy-control-plane
+slos:
+  - name: availability
+    objective: 99.5
+    description: Agent runs that finish without status=error.
+    sli:
+      events:
+        # `or vector(0)`: no error series yet must read as 0, not no-data.
+        error_query: sum(rate(adcp_runs_total{status="error"}[{{.window}}])) or vector(0)
+        total_query: sum(rate(adcp_runs_total[{{.window}}]))
+    alerting:
+      name: AgentRuntimeAvailabilityBurn
+      labels:
+        category: availability
+      annotations:
+        summary: Agent run error budget is burning too fast.
+      page_alert:
+        labels:
+          severity: page
+      ticket_alert:
+        labels:
+          severity: ticket
+
+  - name: latency
+    objective: 95
+    description: Agent runs completing in under 8s end to end.
+    sli:
+      events:
+        # le regex covers Prometheus 3 float normalisation ("8" -> "8.0").
+        error_query: |
+          sum(rate(adcp_run_duration_seconds_count[{{.window}}]))
+          - sum(rate(adcp_run_duration_seconds_bucket{le=~"8|8\\.0"}[{{.window}}]))
+        total_query: sum(rate(adcp_run_duration_seconds_count[{{.window}}]))
+    alerting:
+      name: AgentRuntimeLatencyBurn
+      labels:
+        category: latency
+      annotations:
+        summary: Share of runs slower than 8s is burning the latency budget.
+      page_alert:
+        labels:
+          severity: page
+      ticket_alert:
+        labels:
+          severity: ticket
+
+  - name: quality
+    objective: 90
+    description: Online eval scores above 0.7 (bad = bucket le=0.7).
+    sli:
+      events:
+        error_query: sum(rate(adcp_eval_score_bucket{le="0.7"}[{{.window}}]))
+        total_query: sum(rate(adcp_eval_score_count[{{.window}}]))
+    alerting:
+      name: AgentRuntimeQualityBurn
+      labels:
+        category: quality
+      annotations:
+        summary: Share of runs scoring <= 0.7 is burning the quality budget.
+      page_alert:
+        labels:
+          severity: page
+      ticket_alert:
+        labels:
+          severity: ticket
+
+  - name: cost
+    objective: 95
+    description: >-
+      Spend within $0.02/task. Events are dollars: bad = spend above
+      0.02 x runs in the window, total = spend. 95% => mean cost <= ~$0.0211/task.
+    sli:
+      raw:
+        error_ratio_query: |
+          clamp_min(
+            1 - (0.02 * sum(rate(adcp_runs_total[{{.window}}])))
+              / (sum(rate(adcp_run_cost_usd_total[{{.window}}])) > 0),
+            0
+          )
+    alerting:
+      name: AgentRuntimeCostBurn
+      labels:
+        category: cost
+      annotations:
+        summary: Spend above the $0.02/task budget is burning the cost budget.
+      page_alert:
+        labels:
+          severity: page
+      ticket_alert:
+        labels:
+          severity: ticket
