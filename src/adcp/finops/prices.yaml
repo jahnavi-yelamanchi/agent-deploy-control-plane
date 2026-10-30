@@ -1,0 +1,18 @@
+# USD per 1M tokens. as_of 2026-10. cache_write = 5-min TTL write where the provider bills it.
+# Sources:
+#   anthropic: https://www.anthropic.com/pricing (Claude API; Microsoft Foundry bills at the same rate)
+#   openai:    https://openai.com/api/pricing
+#   google:    https://ai.google.dev/gemini-api/docs/pricing (<=200k prompt tier)
+#   bedrock:   https://aws.amazon.com/bedrock/pricing/ (assumed parity with first-party; verify per region)
+#   vllm/sglang self-hosted: derived from GPU node price, see `derivation`.
+models:
+  claude-sonnet-5-5: {provider: anthropic, input: 2.00, output: 10.00, cache_read: 0.20, cache_write: 2.50}
+  claude-haiku-5-5: {provider: anthropic, input: 0.10, output: 0.50, cache_read: 0.01, cache_write: 0.125}
+  anthropic.claude-sonnet-5-5: {provider: aws_bedrock, input: 2.00, output: 10.00, cache_read: 0.20, cache_write: 2.50}
+  gpt-5: {provider: openai, input: 1.25, output: 10.00, cache_read: 0.125, cache_write: 0.0}
+  azure/gpt-5: {provider: azure_ai_foundry, input: 1.25, output: 10.00, cache_read: 0.125, cache_write: 0.0}
+  gemini-2.5-pro: {provider: google, input: 1.25, output: 10.00, cache_read: 0.31, cache_write: 0.0}
+  llama-3.1-8b-instruct: {provider: vllm, input: 0.05, output: 0.19, cache_read: 0.0, cache_write: 0.0}
+  qwen2.5-7b-instruct: {provider: sglang, input: 0.05, output: 0.19, cache_read: 0.0, cache_write: 0.0}
+derivation:
+  self_hosted: "g5.xlarge (1x A10G) on-demand $1.006/h us-east-1 / (3600 s * 1500 output tok/s batched) ~= $0.19/M out; input prefill ~4x cheaper. Prefix-cache hits billed 0."
