@@ -1,0 +1,93 @@
+# OTel Collector (contrib). One OTLP ingress; fan-out:
+#   traces  -> Tempo + Langfuse (OTLP/HTTP)
+#   metrics -> Prometheus exporter :8889 (scraped by prometheus)
+#   logs    -> Loki native OTLP
+# Env: DEPLOY_ENV (default local), LANGFUSE_AUTH = base64("<public_key>:<secret_key>").
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_percentage: 80
+    spike_limit_percentage: 25
+  batch:
+    send_batch_size: 1024
+    timeout: 5s
+  resource:
+    attributes:
+      - key: deployment.environment.name
+        value: ${env:DEPLOY_ENV:-local}
+        action: upsert
+      - key: deployment.environment
+        value: ${env:DEPLOY_ENV:-local}
+        action: upsert
+  # Drop high-cardinality / sensitive attributes before they reach Prometheus labels.
+  attributes/metrics:
+    actions:
+      - key: run_id
+        action: delete
+      - key: task_id
+        action: delete
+      - key: session_id
+        action: delete
+  # Cap prompt/completion payload size on spans (Langfuse + Tempo).
+  transform/traces:
+    error_mode: ignore
+    trace_statements:
+      - context: span
+        statements:
+          - truncate_all(attributes, 8192)
+
+exporters:
+  otlp/tempo:
+    endpoint: tempo:4317
+    tls:
+      insecure: true
+  otlphttp/langfuse:
+    # otlphttp appends /v1/traces.
+    endpoint: http://langfuse-web:3000/api/public/otel
+    headers:
+      Authorization: Basic ${env:LANGFUSE_AUTH}
+    retry_on_failure:
+      enabled: true
+      max_elapsed_time: 60s
+  prometheus:
+    endpoint: 0.0.0.0:8889
+    # adcp_* names already carry Prometheus suffixes; gen_ai.* -> gen_ai_*.
+    add_metric_suffixes: false
+    enable_open_metrics: true
+    resource_to_telemetry_conversion:
+      enabled: true
+  otlphttp/loki:
+    endpoint: http://loki:3100/otlp
+    tls:
+      insecure: true
+
+service:
+  extensions: [health_check]
+  telemetry:
+    logs:
+      level: info
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, transform/traces, batch]
+      exporters: [otlp/tempo, otlphttp/langfuse]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, attributes/metrics, batch]
+      exporters: [prometheus]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [otlphttp/loki]
