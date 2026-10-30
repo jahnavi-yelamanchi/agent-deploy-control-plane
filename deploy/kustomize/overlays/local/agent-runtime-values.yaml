@@ -1,0 +1,18 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: agent-runtime
+spec:
+  source:
+    helm:
+      valuesObject:
+        image: {repository: ghcr.io/jahnavi-yelamanchi/agent-runtime, tag: dev, pullPolicy: IfNotPresent}
+        replicaCount: 2
+        istio: {gateways: [istio-ingress/adcp-gateway]}
+        analysis:
+          prometheusAddress: http://kube-prometheus-stack-prometheus.monitoring.svc:9090
+        env:
+          MLFLOW_TRACKING_URI: http://mlflow:5000
+          REDIS_URL: redis://redis:6379/0
+          KAFKA_BOOTSTRAP: redpanda:9092
+          POSTGRES_DSN: postgresql://adcp:adcp@postgres:5432/adcp

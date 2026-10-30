@@ -1,0 +1,15 @@
+# AKS: Entra workload identity + ACR image. Values come from `terraform -chdir=terraform/azure output`.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base
+patches:
+  - target: {group: argoproj.io, kind: Application, name: agent-runtime}
+    path: agent-runtime-values.yaml
+  - target: {group: argoproj.io, kind: Application, name: rollback-controller}
+    patch: |-
+      - op: add
+        path: /spec/source/helm
+        value:
+          valuesObject:
+            image: {repository: acradcp.azurecr.io/agent-runtime}

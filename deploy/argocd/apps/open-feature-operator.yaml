@@ -1,0 +1,20 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: open-feature-operator
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+  finalizers: [resources-finalizer.argocd.argoproj.io]
+spec:
+  project: adcp
+  source:
+    repoURL: https://open-feature.github.io/open-feature-operator
+    chart: open-feature-operator
+    targetRevision: v0.8.5
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: open-feature-operator-system
+  syncPolicy:
+    automated: {prune: true, selfHeal: true}
+    syncOptions: [CreateNamespace=true, ServerSideApply=true]

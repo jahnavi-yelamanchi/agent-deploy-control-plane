@@ -1,0 +1,17 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: agent-runtime
+spec:
+  source:
+    helm:
+      valuesObject:
+        image: {repository: 123456789012.dkr.ecr.us-east-1.amazonaws.com/adcp/agent-runtime}
+        serviceAccount:
+          cloud: aws
+          awsRoleArn: arn:aws:iam::123456789012:role/adcp-agent-runtime   # output runtime_role_arn
+        agentSpec:
+          spec: {provider: aws_bedrock, model_id: anthropic.claude-sonnet-5-5}
+        env:
+          AWS_REGION: us-east-1
+          MLFLOW_S3_BUCKET: adcp-mlflow-artifacts-us-east-1   # output mlflow_artifact_bucket

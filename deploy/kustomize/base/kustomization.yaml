@@ -1,0 +1,7 @@
+# GitOps base: namespaces + Argo CD project, app-of-apps root and child Applications.
+# Overlays patch Helm values on the Applications; Argo CD renders the charts.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespaces.yaml
+  - ../../argocd

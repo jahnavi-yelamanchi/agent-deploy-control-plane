@@ -1,0 +1,23 @@
+# Mesh-wide strict mTLS.
+apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata:
+  name: default
+  namespace: istio-system
+spec:
+  mtls:
+    mode: STRICT
+---
+# Prometheus scrapes outside the mesh; allow plaintext on the metrics port only.
+apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata:
+  name: agent-runtime-metrics
+  namespace: agents
+spec:
+  selector:
+    matchLabels: {app: agent-runtime}
+  mtls:
+    mode: STRICT
+  portLevelMtls:
+    "15020": {mode: PERMISSIVE}

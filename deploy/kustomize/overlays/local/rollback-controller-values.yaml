@@ -1,0 +1,13 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: rollback-controller
+spec:
+  source:
+    helm:
+      valuesObject:
+        image: {tag: dev}
+        env:
+          MLFLOW_TRACKING_URI: http://mlflow:5000
+          KAFKA_BOOTSTRAP: redpanda:9092
+          REDIS_URL: redis://redis:6379/0

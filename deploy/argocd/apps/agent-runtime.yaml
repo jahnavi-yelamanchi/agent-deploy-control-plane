@@ -1,0 +1,36 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: agent-runtime
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+  finalizers: [resources-finalizer.argocd.argoproj.io]
+spec:
+  project: adcp
+  source:
+    repoURL: https://github.com/jahnavi-yelamanchi/agent-deploy-control-plane.git
+    targetRevision: main
+    path: deploy/helm/agent-runtime
+    helm:
+      # flags/ is the single source of truth for flagd.
+      fileParameters:
+        - {name: flagd.flagsJson, path: ../../../flags/flags.flagd.json}
+      valuesObject:
+        serviceAccount: {cloud: none}
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: agents
+  # Argo Rollouts owns VirtualService weights and DestinationRule subset hashes at runtime.
+  ignoreDifferences:
+    - group: networking.istio.io
+      kind: VirtualService
+      jqPathExpressions: [".spec.http[].route[].weight"]
+    - group: networking.istio.io
+      kind: DestinationRule
+      jqPathExpressions: [".spec.subsets[].labels"]
+  syncPolicy:
+    automated: {prune: true, selfHeal: true}
+    syncOptions: [CreateNamespace=true, RespectIgnoreDifferences=true]
+    managedNamespaceMetadata:
+      labels: {istio-injection: enabled}

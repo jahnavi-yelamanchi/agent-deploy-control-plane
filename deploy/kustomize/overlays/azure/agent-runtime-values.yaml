@@ -1,0 +1,17 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: agent-runtime
+spec:
+  source:
+    helm:
+      valuesObject:
+        image: {repository: acradcp.azurecr.io/agent-runtime}   # output acr_login_server
+        serviceAccount:
+          cloud: azure
+          azureClientId: 00000000-0000-0000-0000-000000000000   # output runtime_client_id
+        agentSpec:
+          spec: {provider: azure_ai_foundry, model_id: azure/gpt-5}
+        env:
+          AZURE_OPENAI_ENDPOINT: https://oai-adcp.openai.azure.com/   # output openai_endpoint
+          AZURE_OPENAI_DEPLOYMENT: gpt-5

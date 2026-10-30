@@ -1,0 +1,22 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: adcp
+  namespace: argocd
+spec:
+  description: Agent deploy control plane (GitOps)
+  sourceRepos:
+    - https://github.com/jahnavi-yelamanchi/agent-deploy-control-plane.git
+    - https://argoproj.github.io/argo-helm
+    - https://istio-release.storage.googleapis.com/charts
+    - https://prometheus-community.github.io/helm-charts
+    - https://grafana.github.io/helm-charts
+    - https://langfuse.github.io/langfuse-k8s
+    - https://open-feature.github.io/open-feature-operator
+    - ghcr.io/kserve/charts
+  destinations:
+    - {server: https://kubernetes.default.svc, namespace: "*"}
+  clusterResourceWhitelist:
+    - {group: "*", kind: "*"}
+  orphanedResources:
+    warn: true
