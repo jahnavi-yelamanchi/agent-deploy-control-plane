@@ -37,7 +37,7 @@ providers = [
   "azure-identity>=1.19",
 ]
 evals = ["inspect-ai>=0.3.50"]
-deep = ["deepagents>=0.0.5"]
+deep = ["deepagents>=0.0.5", "langchain-mcp-adapters>=0.1"]
 serve = ["ray[serve]>=2.40"]
 dev = [
   "ruff>=0.8",
