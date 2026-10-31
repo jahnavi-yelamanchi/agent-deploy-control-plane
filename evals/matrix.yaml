@@ -1,0 +1,18 @@
+# Comparison experiments for `python -m adcp.evals.matrix`. Mock provider by default;
+# set MODEL_PROVIDER=real (after scripts/bootstrap.sh) to rerun against live endpoints.
+# `specs`: one variant per matching file (label = spec.labels.display or version minus "matrix-").
+# `base` + `variants`: deep-merged overrides on the base spec.
+experiments:
+  models:
+    specs: ["specs/matrix/*.yaml"]
+  caching:
+    base: specs/v1.yaml
+    variants:
+      cache-on: {params: {prompt_caching: true}}
+      cache-off: {params: {prompt_caching: false}}
+  context:
+    base: specs/v1.yaml
+    variants:
+      ctx-full: {context_strategy: full}
+      ctx-summarized: {context_strategy: summarized}
+      ctx-retrieved: {context_strategy: retrieved}
