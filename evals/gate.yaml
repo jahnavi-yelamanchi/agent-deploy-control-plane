@@ -1,0 +1,9 @@
+# Offline gate (python -m adcp.evals.gate). Absolute floors/ceilings on the frozen set, not a
+# comparison against production: a spec that clears them can still be dominated by the stable
+# arm. v2-bad is built to clear this gate on quality and be caught at canary by the Pareto
+# comparison (adcp.rollback); the gate catches only gross regressions.
+thresholds:
+  eval_score_min: 0.75
+  task_success_min: 0.60
+  cost_per_task_max: 0.05 # USD, equals Budget.max_cost_usd_per_run default
+  p95_latency_ms_max: 15000
