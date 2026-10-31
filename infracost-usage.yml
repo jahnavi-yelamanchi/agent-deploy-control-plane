@@ -1,0 +1,24 @@
+# Monthly usage assumptions for usage-based resources (dev/staging control plane).
+version: 0.1
+resource_usage:
+  aws_eks_node_group.cpu:
+    instances: 3
+  aws_eks_node_group.gpu[0]:
+    instances: 1
+  aws_nat_gateway.this:
+    monthly_data_processed_gb: 200
+  aws_s3_bucket.mlflow:
+    standard:
+      storage_gb: 50
+      monthly_tier_1_requests: 100000
+      monthly_tier_2_requests: 1000000
+  aws_ecr_repository.runtime:
+    storage_gb: 20
+  azurerm_storage_account.mlflow:
+    storage_gb: 50
+    monthly_write_operations: 100000
+    monthly_read_operations: 1000000
+  azurerm_storage_account.foundry:
+    storage_gb: 10
+  azurerm_container_registry.this:
+    storage_gb: 20
