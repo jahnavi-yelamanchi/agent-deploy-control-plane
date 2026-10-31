@@ -1,0 +1,41 @@
+{
+  "$schema": "https://flagd.dev/schema/v0/flags.json",
+  "flags": {
+    "tool-issue-refund": {
+      "state": "ENABLED",
+      "variants": {"on": true, "off": false},
+      "defaultVariant": "off",
+      "targeting": {
+        "if": [
+          {"and": [{"==": [{"var": "track"}, "canary"]}, {">=": [{"var": "rolloutStep"}, 2]}]},
+          "on",
+          "off"
+        ]
+      }
+    },
+    "context-strategy": {
+      "state": "ENABLED",
+      "variants": {"inherit": "inherit", "full": "full", "summarized": "summarized", "retrieved": "retrieved"},
+      "defaultVariant": "inherit",
+      "targeting": {
+        "if": [
+          {"and": [{"==": [{"var": "track"}, "canary"]}, {"==": [{"var": "contextExperiment"}, true]}]},
+          "retrieved",
+          "inherit"
+        ]
+      }
+    },
+    "canary-step": {
+      "state": "ENABLED",
+      "variants": {"stable": "stable", "early": "early", "late": "late"},
+      "defaultVariant": "stable",
+      "targeting": {
+        "if": [
+          {"!=": [{"var": "track"}, "canary"]}, "stable",
+          {"<": [{"var": "rolloutStep"}, 2]}, "early",
+          "late"
+        ]
+      }
+    }
+  }
+}
