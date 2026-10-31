@@ -39,7 +39,9 @@ class Stage(StrEnum):
 class ToolSpec(BaseModel):
     name: str
     description: str
-    input_schema: dict[str, Any] = Field(default_factory=lambda: {"type": "object", "properties": {}})
+    input_schema: dict[str, Any] = Field(
+        default_factory=lambda: {"type": "object", "properties": {}}
+    )
     server: str = "tau"
     flag: str | None = None  # OpenFeature flag key gating this tool
 
