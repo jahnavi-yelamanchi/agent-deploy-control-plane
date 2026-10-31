@@ -38,7 +38,7 @@ eval-gate: ## Inspect AI suite + threshold gate
 	$(PY) -m adcp.evals.gate --spec specs/v1.yaml
 
 promptfoo: ## prompt-level regression
-	cd evals/promptfoo && npx --yes promptfoo@0.103.5 eval -c promptfooconfig.yaml --no-cache
+	cd evals/promptfoo && npx --yes promptfoo@0.103.5 eval -c promptfooconfig.yaml --no-cache --no-write
 
 report: ## runs/*.jsonl -> results/results.md + results/cost_vs_quality.png
 	$(PY) scripts/report.py

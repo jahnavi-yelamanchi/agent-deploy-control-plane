@@ -1,0 +1,102 @@
+# Prompt-level regression over 10 frozen tasks. Each prompt is a full AgentSpec (prompt + model +
+# tools); provider.py runs it through the adcp harness with MODEL_PROVIDER=mock.
+#   cd evals/promptfoo && npx --yes promptfoo@0.103.5 eval -c promptfooconfig.yaml --no-cache
+# yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
+description: adcp tau-mock prompt regression
+
+prompts:
+  - id: file://../../specs/v1.yaml
+    label: v1
+  # Side-by-side: uncomment. v3-tradeoff fails airline-001 (tool error) and retail-024 (no handoff
+  # text) on the mock fixtures, so it is kept out of the CI run.
+  # - id: file://../../specs/v3-tradeoff.yaml
+  #   label: v3-tradeoff
+
+providers:
+  - id: file://provider.py
+    label: adcp-harness
+    config:
+      pythonExecutable: ../../.venv/bin/python
+
+defaultTest:
+  assert:
+    - type: cost
+      threshold: 0.05
+    - type: latency # wall clock of the provider call
+      threshold: 15000
+    - type: javascript
+      metric: simulated_latency
+      value: context.providerResponse.metadata.latency_ms < 15000
+    - type: javascript
+      metric: tool_errors
+      value: context.providerResponse.metadata.tool_errors === 0
+    - type: not-icontains
+      value: "as an ai"
+
+tests:
+  - description: airline cancel
+    vars: {task_id: airline-001}
+    assert:
+      - {type: contains, value: R81606}
+      - {type: icontains, value: cancelled}
+      - type: javascript
+        value: context.providerResponse.metadata.tools.includes('cancel_reservation')
+  - description: airline cancel requires identity first
+    vars: {task_id: airline-002}
+    assert:
+      - {type: contains, value: R39281}
+      - type: javascript
+        value: |
+          const t = context.providerResponse.metadata.tools;
+          return t.indexOf('verify_identity') > -1 && t.indexOf('verify_identity') < t.indexOf('cancel_reservation');
+  - description: airline change flight
+    vars: {task_id: airline-007}
+    assert:
+      - {type: contains, value: HAT4462}
+      - type: javascript
+        value: context.providerResponse.metadata.tools.includes('update_reservation_flights')
+  - description: airline refuse cancel of flown reservation
+    vars: {task_id: airline-013}
+    assert:
+      - {type: icontains, value: cannot}
+      - type: javascript
+        value: "!context.providerResponse.metadata.tools.includes('cancel_reservation')"
+  - description: airline read-only status
+    vars: {task_id: airline-017}
+    assert:
+      - {type: contains-all, value: [HAT3380, active]}
+      - type: python
+        value: |
+          mutating = {"cancel_reservation", "update_reservation_flights", "issue_refund"}
+          return not mutating & set(context["providerResponse"]["metadata"]["tools"])
+  - description: retail cancel pending order
+    vars: {task_id: retail-001}
+    assert:
+      - {type: contains, value: "#W9222501"}
+      - {type: icontains, value: cancelled}
+      - type: javascript
+        value: context.providerResponse.metadata.tools.includes('cancel_order')
+  - description: retail return delivered item
+    vars: {task_id: retail-007}
+    assert:
+      - {type: contains, value: "19.99"}
+      - type: javascript
+        value: context.providerResponse.metadata.tools.includes('return_items')
+  - description: retail exchange variant
+    vars: {task_id: retail-013}
+    assert:
+      - {type: icontains, value: exchange}
+      - type: javascript
+        value: context.providerResponse.metadata.tools.includes('exchange_items')
+  - description: retail refuse cancel of delivered order
+    vars: {task_id: retail-021}
+    assert:
+      - {type: icontains, value: cannot}
+      - type: javascript
+        value: "!context.providerResponse.metadata.tools.includes('cancel_order')"
+  - description: retail escalate legal threat
+    vars: {task_id: retail-024}
+    assert:
+      - {type: icontains, value: human agent}
+      - type: javascript
+        value: context.providerResponse.metadata.tools.includes('transfer_to_human')
