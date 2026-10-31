@@ -21,6 +21,5 @@ logs/
 crash.log
 node_modules/
 .promptfoo/
-runs/*.jsonl
-!runs/demo.jsonl
+runs/issues/
 .DS_Store
