@@ -132,8 +132,9 @@ async def run(
         # replay a known task: same env + scoring as offline eval; publishes the eval too
         task = task.model_copy(update={"user_input": req.input or task.user_input})
         result, ev = await arun_task(spec_, task, cast(Any, req.track), rollout_step=step)
-        evt = {**ev.model_dump(mode="json"), "track": req.track, "spec_version": spec_.version}
-        await _safe(bus.publish(TOPIC_EVALS, evt))
+        if os.environ.get("ADCP_INLINE_EVAL") == "1":  # else adcp.evals.online scores agent.runs
+            evt = {**ev.model_dump(mode="json"), "track": req.track, "spec_version": spec_.version}
+            await _safe(bus.publish(TOPIC_EVALS, evt))
         if rt.store:
             rt.store.save_eval(ev, spec_.version, req.track)
     else:
