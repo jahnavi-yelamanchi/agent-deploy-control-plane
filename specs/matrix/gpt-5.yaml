@@ -1,0 +1,263 @@
+name: support-agent
+version: matrix-gpt-5
+system_prompt: |
+  You are the customer-service agent for HAT Airlines and the HAT store. Act only through the tools.
+
+  ## Policy
+  - Before any modification (cancel, change flights, return, exchange, refund) call verify_identity with the user's id and email.
+  - Never cancel or change a flown or cancelled reservation; say you cannot.
+  - Only pending orders can be cancelled; delivered orders can be returned or exchanged instead.
+  - Exchanges stay within the same product and must use an available variant.
+  - Delayed flights: offer $100 compensation via issue_refund when that tool is available; otherwise transfer_to_human.
+  - Legal threats or out-of-scope requests: transfer_to_human.
+  - One tool call per turn. Do not invent ids; read them from tool results.
+
+  ## Output
+  Final message is JSON: {"answer": str, "actions_taken": [str], "needs_human": bool}. The answer states ids, amounts and the new status.
+model_id: gpt-5
+provider: openai
+tools:
+- name: verify_identity
+  description: Verify a user's identity by user id and email. Required before any
+    modification.
+  input_schema:
+    properties:
+      user_id:
+        title: User Id
+        type: string
+      email:
+        title: Email
+        type: string
+    required:
+    - user_id
+    - email
+    title: verify_identityArguments
+    type: object
+  server: tau
+  flag: null
+- name: get_user
+  description: Get user profile, payment methods, reservation ids and order ids.
+  input_schema:
+    properties:
+      user_id:
+        title: User Id
+        type: string
+    required:
+    - user_id
+    title: get_userArguments
+    type: object
+  server: tau
+  flag: null
+- name: get_reservation
+  description: 'Get reservation details: flights, status, cabin, total, payment method.'
+  input_schema:
+    properties:
+      reservation_id:
+        title: Reservation Id
+        type: string
+    required:
+    - reservation_id
+    title: get_reservationArguments
+    type: object
+  server: tau
+  flag: null
+- name: search_flights
+  description: Search scheduled flights by origin, destination (IATA codes) and date
+    (YYYY-MM-DD).
+  input_schema:
+    properties:
+      origin:
+        title: Origin
+        type: string
+      destination:
+        title: Destination
+        type: string
+      date:
+        title: Date
+        type: string
+    required:
+    - origin
+    - destination
+    - date
+    title: search_flightsArguments
+    type: object
+  server: tau
+  flag: null
+- name: update_reservation_flights
+  description: Replace the flights on an active reservation. Price difference charged
+    to its payment method.
+  input_schema:
+    properties:
+      reservation_id:
+        title: Reservation Id
+        type: string
+      flight_numbers:
+        items:
+          type: string
+        title: Flight Numbers
+        type: array
+    required:
+    - reservation_id
+    - flight_numbers
+    title: update_reservation_flightsArguments
+    type: object
+  server: tau
+  flag: null
+- name: cancel_reservation
+  description: Cancel an active reservation and refund the total to the original payment
+    method.
+  input_schema:
+    properties:
+      reservation_id:
+        title: Reservation Id
+        type: string
+    required:
+    - reservation_id
+    title: cancel_reservationArguments
+    type: object
+  server: tau
+  flag: null
+- name: get_order
+  description: 'Get order details: items, status, payment method.'
+  input_schema:
+    properties:
+      order_id:
+        title: Order Id
+        type: string
+    required:
+    - order_id
+    title: get_orderArguments
+    type: object
+  server: tau
+  flag: null
+- name: get_product
+  description: Get product details and its variants (item ids, options, price, availability).
+  input_schema:
+    properties:
+      product_id:
+        title: Product Id
+        type: string
+    required:
+    - product_id
+    title: get_productArguments
+    type: object
+  server: tau
+  flag: null
+- name: cancel_order
+  description: Cancel a pending order. Delivered orders must be returned instead.
+  input_schema:
+    properties:
+      order_id:
+        title: Order Id
+        type: string
+    required:
+    - order_id
+    title: cancel_orderArguments
+    type: object
+  server: tau
+  flag: null
+- name: return_items
+  description: Request a return for items of a delivered order; refund to the given
+    payment method.
+  input_schema:
+    properties:
+      order_id:
+        title: Order Id
+        type: string
+      item_ids:
+        items:
+          type: string
+        title: Item Ids
+        type: array
+      payment_method_id:
+        title: Payment Method Id
+        type: string
+    required:
+    - order_id
+    - item_ids
+    - payment_method_id
+    title: return_itemsArguments
+    type: object
+  server: tau
+  flag: null
+- name: exchange_items
+  description: Exchange delivered items for available variants of the same product.
+  input_schema:
+    properties:
+      order_id:
+        title: Order Id
+        type: string
+      item_ids:
+        items:
+          type: string
+        title: Item Ids
+        type: array
+      new_item_ids:
+        items:
+          type: string
+        title: New Item Ids
+        type: array
+      payment_method_id:
+        title: Payment Method Id
+        type: string
+    required:
+    - order_id
+    - item_ids
+    - new_item_ids
+    - payment_method_id
+    title: exchange_itemsArguments
+    type: object
+  server: tau
+  flag: null
+- name: issue_refund
+  description: Issue a goodwill refund/compensation to a user (max $200). Gated by
+    flag tool-issue-refund.
+  input_schema:
+    properties:
+      user_id:
+        title: User Id
+        type: string
+      amount:
+        title: Amount
+        type: number
+      reason:
+        title: Reason
+        type: string
+    required:
+    - user_id
+    - amount
+    - reason
+    title: issue_refundArguments
+    type: object
+  server: tau
+  flag: tool-issue-refund
+- name: transfer_to_human
+  description: Transfer the conversation to a human agent when the request is out
+    of policy scope.
+  input_schema:
+    properties:
+      user_id:
+        title: User Id
+        type: string
+      summary:
+        title: Summary
+        type: string
+    required:
+    - user_id
+    - summary
+    title: transfer_to_humanArguments
+    type: object
+  server: tau
+  flag: null
+context_strategy: summarized
+params:
+  temperature: null
+  max_tokens: 1024
+  prompt_caching: true
+  max_steps: 8
+  timeout_s: 30.0
+budget:
+  max_cost_usd_per_run: 0.05
+  max_latency_ms: 15000.0
+labels:
+  role: matrix
