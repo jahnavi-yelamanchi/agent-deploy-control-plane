@@ -1,0 +1,71 @@
+# SGLang server: RadixAttention prefix cache (on by default; --disable-radix-cache turns it off).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sglang
+  namespace: serving
+  labels: {app: sglang}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: sglang}
+  template:
+    metadata:
+      labels: {app: sglang}
+    spec:
+      nodeSelector: {pool: gpu}
+      tolerations:
+        - {key: nvidia.com/gpu, operator: Equal, value: "true", effect: NoSchedule}
+      containers:
+        - name: sglang
+          image: lmsysorg/sglang:v0.4.1-cu124
+          command: ["python3", "-m", "sglang.launch_server"]
+          args:
+            - --model-path=Qwen/Qwen2.5-7B-Instruct
+            - --served-model-name=qwen2.5-7b-instruct
+            - --host=0.0.0.0
+            - --port=30000
+            - --mem-fraction-static=0.85
+            - --schedule-policy=lpm          # longest-prefix-match: maximizes radix cache reuse
+            - --chunked-prefill-size=8192
+            - --enable-metrics
+          ports:
+            - {name: http, containerPort: 30000}
+          env:
+            - name: HF_TOKEN
+              valueFrom: {secretKeyRef: {name: hf-token, key: token, optional: true}}
+          readinessProbe:
+            httpGet: {path: /health, port: http}
+            initialDelaySeconds: 60
+            periodSeconds: 10
+          resources:
+            requests: {cpu: "4", memory: 24Gi, nvidia.com/gpu: "1"}
+            limits: {memory: 24Gi, nvidia.com/gpu: "1"}
+          volumeMounts:
+            - {name: shm, mountPath: /dev/shm}
+      volumes:
+        - name: shm
+          emptyDir: {medium: Memory, sizeLimit: 8Gi}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sglang
+  namespace: serving
+  labels: {app: sglang}
+spec:
+  selector: {app: sglang}
+  ports:
+    - {name: http, port: 30000, targetPort: http}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: sglang
+  namespace: serving
+  labels: {release: kube-prometheus-stack}
+spec:
+  selector:
+    matchLabels: {app: sglang}
+  endpoints:
+    - {port: http, path: /metrics, interval: 15s}

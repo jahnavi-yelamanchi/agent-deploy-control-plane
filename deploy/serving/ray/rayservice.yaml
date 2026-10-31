@@ -1,0 +1,60 @@
+# KubeRay RayService running serve_vllm.py (vLLM + prefix caching) on the GPU pool.
+apiVersion: ray.io/v1
+kind: RayService
+metadata:
+  name: vllm-serve
+  namespace: serving
+spec:
+  serveConfigV2: |
+    applications:
+      - name: llm
+        route_prefix: /
+        import_path: deploy.serving.ray.serve_vllm:app
+        runtime_env:
+          working_dir: https://github.com/jahnavi-yelamanchi/agent-deploy-control-plane/archive/refs/heads/main.zip
+          env_vars:
+            VLLM_MODEL: meta-llama/Llama-3.1-8B-Instruct
+            VLLM_SERVED_NAME: llama-3.1-8b-instruct
+            VLLM_GPU_MEMORY_UTILIZATION: "0.90"
+            VLLM_KV_CACHE_DTYPE: fp8
+            VLLM_BLOCK_SIZE: "16"
+            VLLM_MAX_NUM_SEQS: "128"
+  rayClusterConfig:
+    rayVersion: "2.40.0"
+    headGroupSpec:
+      rayStartParams:
+        dashboard-host: 0.0.0.0
+        metrics-export-port: "8080"
+      template:
+        spec:
+          containers:
+            - name: ray-head
+              image: rayproject/ray-ml:2.40.0-py310-gpu
+              ports:
+                - {containerPort: 6379, name: gcs}
+                - {containerPort: 8265, name: dashboard}
+                - {containerPort: 8000, name: serve}
+                - {containerPort: 8080, name: metrics}
+              resources:
+                requests: {cpu: "2", memory: 8Gi}
+                limits: {memory: 8Gi}
+    workerGroupSpecs:
+      - groupName: gpu
+        replicas: 1
+        minReplicas: 1
+        maxReplicas: 2
+        rayStartParams: {}
+        template:
+          spec:
+            nodeSelector: {pool: gpu}
+            tolerations:
+              - {key: nvidia.com/gpu, operator: Equal, value: "true", effect: NoSchedule}
+            containers:
+              - name: ray-worker
+                image: rayproject/ray-ml:2.40.0-py310-gpu
+                env:
+                  - name: HF_TOKEN
+                    valueFrom: {secretKeyRef: {name: hf-token, key: token, optional: true}}
+                resources:
+                  requests: {cpu: "4", memory: 24Gi, nvidia.com/gpu: "1"}
+                  limits: {memory: 24Gi, nvidia.com/gpu: "1"}
