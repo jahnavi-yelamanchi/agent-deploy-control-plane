@@ -1,0 +1,28 @@
+# Weekly game day: canary pod-delete, Tuesdays 14:00-16:00 UTC.
+apiVersion: litmuschaos.io/v1alpha1
+kind: ChaosSchedule
+metadata:
+  name: canary-gameday
+  namespace: agents
+spec:
+  schedule:
+    repeat:
+      properties:
+        minChaosInterval: 2h
+      timeRange:
+        startTime: "2026-11-03T14:00:00Z"
+      workHours:
+        includedHours: "14-16"
+      workDays:
+        includedDays: Tue
+  engineTemplateSpec:
+    engineState: active
+    annotationCheck: "false"
+    appinfo:
+      appns: agents
+      applabel: adcp.dev/track=canary
+      appkind: rollout
+    chaosServiceAccount: litmus-admin
+    jobCleanUpPolicy: delete
+    experiments:
+      - name: pod-delete

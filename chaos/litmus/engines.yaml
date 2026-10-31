@@ -1,0 +1,81 @@
+# Faults on canary pods only (Rollout canaryMetadata label adcp.dev/track=canary).
+# Expected outcome: canary SLOs breach -> AnalysisRun fails / rollback controller aborts.
+# promProbes record whether the breach was observed (MTTD) during the chaos window.
+apiVersion: litmuschaos.io/v1alpha1
+kind: ChaosEngine
+metadata:
+  name: canary-pod-delete
+  namespace: agents
+spec:
+  engineState: active
+  annotationCheck: "false"
+  appinfo:
+    appns: agents
+    applabel: adcp.dev/track=canary
+    appkind: rollout
+  chaosServiceAccount: litmus-admin
+  jobCleanUpPolicy: retain
+  experiments:
+    - name: pod-delete
+      spec:
+        components:
+          env:
+            - {name: TOTAL_CHAOS_DURATION, value: "60"}
+            - {name: CHAOS_INTERVAL, value: "15"}
+        probe:
+          - name: canary-error-rate
+            type: promProbe
+            mode: Edge
+            promProbe/inputs:
+              endpoint: http://kube-prometheus-stack-prometheus.monitoring.svc:9090
+              query: (sum(rate(adcp_runs_total{track="canary",status!="ok"}[1m])) or vector(0)) / sum(rate(adcp_runs_total{track="canary"}[1m]))
+              comparator: {type: float, criteria: "<=", value: "0.05"}
+            runProperties: {probeTimeout: 5s, interval: 10s, retry: 1}
+          - name: stable-unaffected
+            type: promProbe
+            mode: Continuous
+            promProbe/inputs:
+              endpoint: http://kube-prometheus-stack-prometheus.monitoring.svc:9090
+              query: sum(rate(adcp_eval_score_sum{track="stable"}[2m])) / sum(rate(adcp_eval_score_count{track="stable"}[2m]))
+              comparator: {type: float, criteria: ">=", value: "0.8"}
+            runProperties: {probeTimeout: 5s, interval: 15s, retry: 2}
+---
+apiVersion: litmuschaos.io/v1alpha1
+kind: ChaosEngine
+metadata:
+  name: canary-network-latency
+  namespace: agents
+spec:
+  engineState: active
+  annotationCheck: "false"
+  appinfo:
+    appns: agents
+    applabel: adcp.dev/track=canary
+    appkind: rollout
+  chaosServiceAccount: litmus-admin
+  jobCleanUpPolicy: retain
+  experiments:
+    - name: pod-network-latency
+      spec:
+        components:
+          env:
+            - {name: NETWORK_LATENCY, value: "2000"}
+            - {name: TOTAL_CHAOS_DURATION, value: "120"}
+            - {name: TARGET_CONTAINER, value: runtime}
+        probe:
+          - name: canary-p95-latency
+            type: promProbe
+            mode: Continuous
+            promProbe/inputs:
+              endpoint: http://kube-prometheus-stack-prometheus.monitoring.svc:9090
+              query: histogram_quantile(0.95, sum by (le) (rate(adcp_run_duration_seconds_bucket{track="canary"}[1m])))
+              comparator: {type: float, criteria: "<=", value: "8"}
+            runProperties: {probeTimeout: 5s, interval: 10s, retry: 1}
+          - name: canary-eval-score
+            type: promProbe
+            mode: EOT
+            promProbe/inputs:
+              endpoint: http://kube-prometheus-stack-prometheus.monitoring.svc:9090
+              query: sum(rate(adcp_eval_score_sum{track="canary"}[2m])) / sum(rate(adcp_eval_score_count{track="canary"}[2m]))
+              comparator: {type: float, criteria: ">=", value: "0.8"}
+            runProperties: {probeTimeout: 5s, interval: 10s, retry: 1}

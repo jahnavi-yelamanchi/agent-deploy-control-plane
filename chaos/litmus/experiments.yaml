@@ -1,0 +1,55 @@
+# Trimmed from ChaosHub (litmuschaos/chaos-charts, generic/*). go-runner pinned.
+apiVersion: litmuschaos.io/v1alpha1
+kind: ChaosExperiment
+metadata:
+  name: pod-delete
+  namespace: agents
+  labels: {name: pod-delete, app.kubernetes.io/part-of: litmus}
+spec:
+  definition:
+    scope: Namespaced
+    permissions:
+      - apiGroups: ["", apps, batch, litmuschaos.io, argoproj.io]
+        resources: [pods, events, pods/log, deployments, replicasets, jobs, chaosengines, chaosexperiments, chaosresults, rollouts]
+        verbs: [create, delete, get, list, patch, update, watch, deletecollection]
+    image: litmuschaos/go-runner:3.11.0
+    imagePullPolicy: IfNotPresent
+    args: ["-c", "./experiments -name pod-delete"]
+    command: ["/bin/bash"]
+    env:
+      - {name: TOTAL_CHAOS_DURATION, value: "60"}
+      - {name: CHAOS_INTERVAL, value: "15"}
+      - {name: FORCE, value: "true"}
+      - {name: PODS_AFFECTED_PERC, value: "50"}
+      - {name: SEQUENCE, value: parallel}
+    labels: {name: pod-delete}
+---
+apiVersion: litmuschaos.io/v1alpha1
+kind: ChaosExperiment
+metadata:
+  name: pod-network-latency
+  namespace: agents
+  labels: {name: pod-network-latency, app.kubernetes.io/part-of: litmus}
+spec:
+  definition:
+    scope: Namespaced
+    permissions:
+      - apiGroups: ["", apps, batch, litmuschaos.io, argoproj.io]
+        resources: [pods, events, pods/log, pods/exec, deployments, replicasets, jobs, chaosengines, chaosexperiments, chaosresults, rollouts]
+        verbs: [create, delete, get, list, patch, update, watch, deletecollection]
+    image: litmuschaos/go-runner:3.11.0
+    imagePullPolicy: IfNotPresent
+    args: ["-c", "./experiments -name pod-network-latency"]
+    command: ["/bin/bash"]
+    env:
+      - {name: TOTAL_CHAOS_DURATION, value: "120"}
+      - {name: NETWORK_LATENCY, value: "2000"}
+      - {name: JITTER, value: "200"}
+      - {name: CONTAINER_RUNTIME, value: containerd}
+      - {name: SOCKET_PATH, value: /run/containerd/containerd.sock}
+      - {name: PODS_AFFECTED_PERC, value: "100"}
+      - {name: LIB_IMAGE, value: litmuschaos/go-runner:3.11.0}
+    labels: {name: pod-network-latency}
+    securityContext:
+      containerSecurityContext:
+        privileged: true
