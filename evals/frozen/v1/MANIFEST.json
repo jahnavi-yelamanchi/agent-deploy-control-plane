@@ -1,0 +1,7 @@
+{
+  "version": "v1",
+  "sha256": "e17065b04446439704839863fd9b52f3dacd31c18ae20810f7f7dacab62c3976",
+  "n_tasks": 50,
+  "source": "evals/tasks/tasks.jsonl",
+  "created": "2026-11-02T17:10:50+00:00"
+}
