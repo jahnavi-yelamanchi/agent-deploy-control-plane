@@ -1,0 +1,39 @@
+# On-demand / pay-as-you-go list prices, USD per hour, Linux. as_of: 2026-10.
+# Used by adcp.finops.report when `infracost` is not installed. 730 h/month.
+# Sources:
+#   EKS control plane:  https://aws.amazon.com/eks/pricing/ (standard support; extended $0.60/h)
+#   EC2 on-demand:      https://aws.amazon.com/ec2/pricing/on-demand/ (us-east-1)
+#   NAT gateway:        https://aws.amazon.com/vpc/pricing/ (hourly only, excl. $0.045/GB)
+#   AKS tiers:          https://azure.microsoft.com/pricing/details/kubernetes-service/
+#   Azure VMs:          https://azure.microsoft.com/pricing/details/virtual-machines/linux/ (eastus2)
+#   ACR Standard:       https://azure.microsoft.com/pricing/details/container-registry/ ($20/month)
+as_of: "2026-10"
+hours_per_month: 730
+aws:
+  region: us-east-1
+  control_plane: {eks_standard: 0.10}
+  instances:
+    m6i.xlarge: 0.192
+    m6i.2xlarge: 0.384
+    g5.xlarge: 1.006
+    g6.xlarge: 0.8048
+  extras:  # resource type in terraform -> hourly
+    aws_nat_gateway: 0.045
+azure:
+  region: eastus2
+  control_plane: {aks_free: 0.0, aks_standard: 0.10, aks_premium: 0.60}
+  instances:
+    Standard_D4s_v5: 0.192
+    Standard_D8s_v5: 0.384
+    Standard_NC4as_T4_v3: 0.526
+    Standard_NC24ads_A100_v4: 3.673
+  extras:
+    azurerm_container_registry: 0.0274  # Standard SKU, $20/month
+# Fallback node pools when terraform/ is missing or unparsable.
+default_pools:
+  aws:
+    cpu: {instance_type: m6i.xlarge, count: 3}
+    gpu: {instance_type: g6.xlarge, count: 1}
+  azure:
+    cpu: {instance_type: Standard_D4s_v5, count: 3}
+    gpu: {instance_type: Standard_NC4as_T4_v3, count: 1}
