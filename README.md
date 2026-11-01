@@ -172,7 +172,7 @@ All rows land in `runs/*.jsonl`; `make report` rebuilds `results/results.md` and
 - Cloud: nothing applied. Terraform is `validate` + `terraform test` (plan against mock providers) only. No cluster or containers were started in the build environment; images were not built or pushed. K8s manifests checked with `helm lint`, `kustomize build`, kubeconform.
 - Helm chart versions in `deploy/argocd/apps/*.yaml` and `scripts/up.sh` (Argo CD 7.7.11, Argo Rollouts 2.38.0, Istio 1.30.7, kube-prometheus-stack 66.3.1, Tempo 1.14.0, Loki 6.24.0, Langfuse 1.2.14, KServe v0.14.1, OpenFeature Operator v0.8.5) were pinned from memory where chart repos were unreachable.
 
-Architecture: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Setup and keys: [docs/SETUP.md](docs/SETUP.md).
+Architecture: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Setup and keys: [docs/SETUP.md](docs/SETUP.md). Keyword map: [docs/KEYWORD_MAP.md](docs/KEYWORD_MAP.md). Status and gaps: [docs/STATUS.md](docs/STATUS.md).
 
 ## Run
 
