@@ -1,0 +1,33 @@
+name: nightly-eval
+on:
+  schedule:
+    - cron: "17 7 * * *"
+  workflow_dispatch: {}
+permissions:
+  contents: read
+env:
+  MODEL_PROVIDER: ${{ vars.NIGHTLY_PROVIDER || 'mock' }}
+jobs:
+  matrix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.13"
+          enable-cache: true
+      - run: uv sync --extra evals
+      - name: Comparison matrix
+        run: uv run python -m adcp.evals.matrix --out runs/matrix.jsonl
+      - name: Chaos suite
+        run: uv run python scripts/chaos_suite.py --out runs/chaos.jsonl
+      - name: Report
+        run: |
+          uv run python scripts/report.py
+          cat results/results.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nightly-results
+          path: |
+            runs/
+            results/
