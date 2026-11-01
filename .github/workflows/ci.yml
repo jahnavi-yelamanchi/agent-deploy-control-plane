@@ -1,0 +1,51 @@
+name: ci
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+env:
+  MODEL_PROVIDER: mock
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.13"
+          enable-cache: true
+      - run: uv sync --extra dev --extra evals
+      - run: uv run ruff check src tests scripts evals
+      - run: uv run ruff format --check src tests scripts evals
+      - run: uv run mypy
+      - run: uv run pytest
+      - run: uv run python scripts/gen_slo_rules.py --check
+  terraform:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        cloud: [aws, azure]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.8
+      - run: terraform fmt -check -recursive
+        working-directory: terraform/${{ matrix.cloud }}
+      - run: terraform init -backend=false -input=false
+        working-directory: terraform/${{ matrix.cloud }}
+      - run: terraform validate
+        working-directory: terraform/${{ matrix.cloud }}
+      - run: terraform test
+        working-directory: terraform/${{ matrix.cloud }}
+  kubernetes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.16.2
+      - run: |
+          curl -sSL https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz | tar xz -C /usr/local/bin kubeconform
+      - run: ./scripts/validate_k8s.sh
