@@ -1,0 +1,67 @@
+name: release
+on:
+  push:
+    branches: [main]
+    paths: ["specs/**", "src/**", "Dockerfile", "deploy/helm/**"]
+permissions:
+  contents: read
+  packages: write
+env:
+  MODEL_PROVIDER: mock
+  IMAGE: ghcr.io/${{ github.repository_owner }}/agent-runtime
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.13"
+          enable-cache: true
+      - run: uv sync --extra evals
+      - name: Eval gate (blocking)
+        run: uv run python -m adcp.evals.gate --spec specs/v1.yaml --summary "$GITHUB_STEP_SUMMARY"
+      - name: Register AgentSpec in MLflow Model Registry
+        id: register
+        env:
+          MLFLOW_TRACKING_URI: ${{ vars.MLFLOW_TRACKING_URI || 'sqlite:///.mlflow/mlflow.db' }}
+        run: |
+          version=$(uv run adcp register --spec specs/v1.yaml --stage candidate | tail -1 | jq -r .version)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Registered AgentSpec version: $version" >> "$GITHUB_STEP_SUMMARY"
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        if: vars.PUSH_IMAGE == 'true'
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: ${{ vars.PUSH_IMAGE == 'true' }}
+          tags: ${{ env.IMAGE }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Bump Helm values
+        run: |
+          yq -i '.image.tag = "${{ github.sha }}"' deploy/helm/agent-runtime/values.yaml
+          yq -i '.agentSpec.version = "${{ steps.register.outputs.version }}"' deploy/helm/agent-runtime/values.yaml
+          git diff > values-bump.patch
+          cat values-bump.patch >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gitops-bump
+          path: |
+            values-bump.patch
+            .mlflow/
+      - name: Push GitOps bump
+        if: vars.GITOPS_PUSH == 'true'
+        env:
+          DEPLOY_KEY: ${{ secrets.GITOPS_DEPLOY_KEY }}
+        run: |
+          mkdir -p ~/.ssh && echo "$DEPLOY_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+          git config user.name "${{ github.actor }}"
+          git config user.email "${{ github.actor }}@users.noreply.github.com"
+          git commit -am "deploy: agent-runtime ${{ github.sha }}"
+          git push git@github.com:${{ github.repository }}.git HEAD:main
