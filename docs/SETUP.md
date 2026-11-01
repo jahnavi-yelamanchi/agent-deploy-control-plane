@@ -43,21 +43,21 @@ Copy `.env.example` to `.env`. Only read when `MODEL_PROVIDER=real` (any value o
 | OpenAI | `OPENAI_API_KEY` | `providers/openai_compat.py` | Also sent as bearer to vLLM/SGLang if set, else `EMPTY` |
 | Google | `GOOGLE_API_KEY` | google-genai SDK (`providers/google_provider.py`) | Vertex instead: `GOOGLE_GENAI_USE_VERTEXAI=true` |
 | AWS Bedrock | `AWS_REGION` | `providers/bedrock_provider.py` | Default `us-east-1` |
-| | `AWS_ACCESS_KEY_ID` + `AWS_SECRET_ACCESS_KEY`, or `AWS_PROFILE` | boto3 / AWS default chain | IRSA on EKS. `bootstrap.sh` only counts the key pair |
+| | `AWS_ACCESS_KEY_ID` + `AWS_SECRET_ACCESS_KEY`, or `AWS_PROFILE` | boto3 / AWS default chain | IRSA on EKS (`AWS_ROLE_ARN`). `bootstrap.sh` accepts keys, profile or role |
 | | Bedrock model id | spec `model_id` | No env var. Adapter prefixes `anthropic.`; AWS overlay sets `anthropic.claude-sonnet-5-5`. Enable model access in the Bedrock console |
 | Azure OpenAI | `AZURE_OPENAI_ENDPOINT` | `providers/openai_compat.py` (`AzureOpenAIProvider`) | Takes precedence over `AZURE_AI_ENDPOINT` |
 | | `AZURE_OPENAI_DEPLOYMENT`, `AZURE_OPENAI_API_VERSION` | same | Defaults: model id minus `azure/`; `2025-04-01-preview` |
-| | `AZURE_OPENAI_API_KEY` | not read | Auth is Entra ID only (`DefaultAzureCredential`) |
+| | `AZURE_OPENAI_API_KEY` | `providers/openai_compat.py` | Optional; unset -> Entra ID token (`DefaultAzureCredential`) |
 | Azure AI Foundry | `AZURE_AI_ENDPOINT` | `providers/azure_provider.py` | Code name; `AZURE_AI_FOUNDRY_ENDPOINT` is not read |
-| Azure identity | `AZURE_CLIENT_ID`, `AZURE_TENANT_ID` | azure-identity `DefaultAzureCredential` | Required by `bootstrap.sh` for Azure |
+| Azure identity | `AZURE_CLIENT_ID`, `AZURE_TENANT_ID` | azure-identity `DefaultAzureCredential` | Required by `bootstrap.sh` unless `AZURE_OPENAI_API_KEY` is set |
 | | `AZURE_FEDERATED_TOKEN_FILE` | azure-identity (workload identity) | Injected by AKS; not set by hand |
 | | `AZURE_CLIENT_SECRET` | azure-identity (`EnvironmentCredential`) | Local service principal alternative; or `az login` |
 | | `AZURE_SUBSCRIPTION_ID` | not read | Terraform azurerm reads `ARM_SUBSCRIPTION_ID` |
-| vLLM | `VLLM_BASE_URL` | `providers/openai_compat.py` | Default `http://localhost:8000/v1`; not counted by `bootstrap.sh` |
-| SGLang | `SGLANG_BASE_URL` | same | Default `http://localhost:30000/v1`; not counted by `bootstrap.sh` |
+| vLLM | `VLLM_BASE_URL` | `providers/openai_compat.py` | e.g. `http://localhost:8000/v1`; counted by `bootstrap.sh` |
+| SGLang | `SGLANG_BASE_URL` | same | e.g. `http://localhost:30000/v1`; counted by `bootstrap.sh` |
 | Langfuse | `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY` | `bootstrap.sh` check; compose init | Used to build `LANGFUSE_AUTH` |
 | | `LANGFUSE_AUTH` | OTel Collector (`observability/otel-collector.yaml`) | `printf '%s:%s' "$LANGFUSE_PUBLIC_KEY" "$LANGFUSE_SECRET_KEY" \| base64 -w0`; compose default matches local keys |
-| | `LANGFUSE_HOST` | not read by code | Collector exporter endpoint is fixed to `http://langfuse-web:3000/api/public/otel`; edit it for Langfuse Cloud |
+| | `LANGFUSE_AUTH` | `observability/otel-collector.yaml` | base64(public:secret); exporter endpoint fixed to `http://langfuse-web:3000/api/public/otel`, edit for Langfuse Cloud |
 | GitHub | `GITHUB_TOKEN` | `adcp.config` -> `rollback/github.py` | Issue scope on `GITHUB_REPO` (default `jahnavi-yelamanchi/agent-deploy-control-plane`); unset -> issues written to `runs/issues/*.md` |
 
 Other runtime vars (`BACKEND`, `MLFLOW_TRACKING_URI`, `KAFKA_BOOTSTRAP`, `FLAGD_HOST`, `OTEL_EXPORTER_OTLP_ENDPOINT`, `PROMETHEUS_URL`, `ADCP_SPEC_ALIAS`, `ADCP_ROLLBACK_RULE`, `ADCP_ROLLBACK_INTERVAL_S`): see `.env.example`, `src/adcp/config.py`, `src/adcp/rollback/service.py`.

@@ -19,12 +19,19 @@ n=0
 check anthropic ANTHROPIC_API_KEY && n=$((n+1)) || true
 check openai OPENAI_API_KEY && n=$((n+1)) || true
 check google GOOGLE_API_KEY && n=$((n+1)) || true
-check aws_bedrock AWS_REGION AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY && n=$((n+1)) || true
+if have AWS_ACCESS_KEY_ID || have AWS_PROFILE || have AWS_ROLE_ARN; then  # keys, profile or IRSA
+  check aws_bedrock AWS_REGION && n=$((n+1)) || true
+else
+  echo "aws_bedrock        missing: AWS_ACCESS_KEY_ID, AWS_PROFILE or AWS_ROLE_ARN"
+fi
 if have AZURE_OPENAI_ENDPOINT || have AZURE_AI_ENDPOINT; then
-  check azure AZURE_TENANT_ID AZURE_CLIENT_ID && n=$((n+1)) || true
+  if have AZURE_OPENAI_API_KEY; then echo "azure              ok (api key)"; n=$((n+1))
+  else check azure AZURE_TENANT_ID AZURE_CLIENT_ID && n=$((n+1)) || true; fi
 else
   echo "azure              missing: AZURE_OPENAI_ENDPOINT or AZURE_AI_ENDPOINT"
 fi
+check vllm VLLM_BASE_URL && n=$((n+1)) || true
+check sglang SGLANG_BASE_URL && n=$((n+1)) || true
 check langfuse LANGFUSE_PUBLIC_KEY LANGFUSE_SECRET_KEY || true
 
 if [[ $n == 0 ]]; then
