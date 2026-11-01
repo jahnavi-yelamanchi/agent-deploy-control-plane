@@ -7,6 +7,9 @@ permissions:
   contents: read
 env:
   MODEL_PROVIDER: ${{ vars.NIGHTLY_PROVIDER || 'mock' }}
+  ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+  OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+  GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
 jobs:
   matrix:
     runs-on: ubuntu-latest
@@ -16,9 +19,11 @@ jobs:
         with:
           python-version: "3.13"
           enable-cache: true
-      - run: uv sync --extra evals
+      - run: uv sync --extra evals --extra providers
       - name: Comparison matrix
         run: uv run python -m adcp.evals.matrix --out runs/matrix.jsonl
+      - name: Rollout experiments
+        run: uv run python -m adcp.rollout.experiments --out runs/rollout.jsonl
       - name: Chaos suite
         run: uv run python scripts/chaos_suite.py --out runs/chaos.jsonl
       - name: Report

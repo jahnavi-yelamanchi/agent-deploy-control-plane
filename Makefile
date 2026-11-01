@@ -1,10 +1,12 @@
 SHELL := /bin/bash
+-include .env
+export $(shell sed -n 's/^\([A-Z_][A-Z0-9_]*\)=.*/\1/p' .env 2>/dev/null)
 export MODEL_PROVIDER ?= mock
 UV ?= uv
 PY := $(UV) run python
 
 .PHONY: help install bootstrap lint typecheck test eval eval-gate promptfoo report demo-local demo up down \
-        validate-k8s plan-aws plan-azure slo-rules chaos finops infracost fixtures freeze
+        validate-k8s plan-aws plan-azure slo-rules chaos finops infracost fixtures freeze matrix rollout
 
 help:
 	@grep -E '^[a-z-]+:.*##' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "%-14s %s\n", $$1, $$2}'
@@ -40,6 +42,12 @@ eval-gate: ## Inspect AI suite + threshold gate
 promptfoo: ## prompt-level regression
 	cd evals/promptfoo && npx --yes promptfoo@0.103.5 eval -c promptfooconfig.yaml --no-cache --no-write
 
+matrix: ## model / caching / context comparison matrix
+	$(PY) -m adcp.evals.matrix --out runs/matrix.jsonl
+
+rollout: ## canary 10% vs 25% TTD, Pareto vs naive false rollbacks
+	$(PY) -m adcp.rollout.experiments --out runs/rollout.jsonl
+
 report: ## runs/*.jsonl -> results/results.md + results/cost_vs_quality.png
 	$(PY) scripts/report.py
 
@@ -68,7 +76,7 @@ slo-rules: ## generate Prometheus rules from slo/slo.yaml
 	$(PY) scripts/gen_slo_rules.py
 
 chaos: ## chaos suite: MTTD / MTTR
-	$(PY) scripts/chaos_suite.py
+	$(PY) scripts/chaos_suite.py --out runs/chaos.jsonl
 
 finops: ## per-deploy, per-1k-task and AKS-vs-EKS cost tables
 	$(PY) -m adcp.finops.report
