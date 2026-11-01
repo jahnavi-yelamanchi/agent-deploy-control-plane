@@ -1,0 +1,49 @@
+name: eval-gate
+on:
+  push:
+    branches: [main]
+    paths: ["specs/**", "src/**", "evals/**", "flags/**"]
+permissions:
+  contents: read
+env:
+  MODEL_PROVIDER: mock
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.13"
+          enable-cache: true
+      - run: uv sync --extra dev --extra evals
+      - name: Frozen set integrity
+        run: uv run python -m adcp.evals.freeze --verify
+      - name: Inspect AI suite + threshold gate
+        run: |
+          for spec in specs/v*.yaml; do
+            uv run python -m adcp.evals.gate --spec "$spec" --inspect --summary "$GITHUB_STEP_SUMMARY" || failed="$failed $spec"
+          done
+          echo "gate failures:${failed:- none}"
+          # v1 must pass; other specs are reported, not blocking
+          uv run python -m adcp.evals.gate --spec specs/v1.yaml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: inspect-logs
+          path: logs/
+  promptfoo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.13"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: uv sync
+      - name: promptfoo regression
+        run: |
+          source .venv/bin/activate
+          make promptfoo
