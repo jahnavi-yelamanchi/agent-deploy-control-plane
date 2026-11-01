@@ -49,3 +49,13 @@ jobs:
       - run: |
           curl -sSL https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz | tar xz -C /usr/local/bin kubeconform
       - run: ./scripts/validate_k8s.sh
+  prometheus:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          curl -sSL https://github.com/prometheus/prometheus/releases/download/v3.1.0/prometheus-3.1.0.linux-amd64.tar.gz \
+            | tar xz --strip-components=1 -C /usr/local/bin prometheus-3.1.0.linux-amd64/promtool
+      - run: promtool check rules observability/prometheus/rules/*.yml
+      - run: promtool test rules tests/slo_test.yml
+        working-directory: observability/prometheus

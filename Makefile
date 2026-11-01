@@ -17,9 +17,11 @@ install: ## uv sync with dev + evals extras
 bootstrap: ## flip from mock to real providers (reads .env)
 	./scripts/bootstrap.sh
 
-lint: ## ruff
+lint: ## ruff + promtool
 	$(UV) run ruff check src tests scripts evals
 	$(UV) run ruff format --check src tests scripts evals
+	@command -v promtool >/dev/null && promtool check rules observability/prometheus/rules/*.yml \
+	  && (cd observability/prometheus && promtool test rules tests/slo_test.yml) || echo "promtool not found; skipped"
 
 typecheck: ## mypy
 	$(UV) run mypy
