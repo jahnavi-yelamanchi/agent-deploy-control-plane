@@ -12,13 +12,8 @@ runs
 results
 logs
 docs
+infra
 tests
-terraform
-deploy
-chaos
-compose
-observability
-slo
 scripts
 node_modules
 .env

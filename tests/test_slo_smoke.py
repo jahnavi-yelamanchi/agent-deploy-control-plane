@@ -9,7 +9,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parent.parent
 SCRIPT = ROOT / "scripts" / "gen_slo_rules.py"
-RULES = ROOT / "observability" / "prometheus" / "rules"
+RULES = ROOT / "infra" / "observability" / "prometheus" / "rules"
 
 
 def _load_gen():

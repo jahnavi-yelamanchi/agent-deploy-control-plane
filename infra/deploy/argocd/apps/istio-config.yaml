@@ -1,0 +1,18 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: istio-config
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: adcp
+  source:
+    repoURL: https://github.com/jahnavi-yelamanchi/agent-deploy-control-plane.git
+    targetRevision: main
+    path: infra/deploy/istio
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: istio-system
+  syncPolicy:
+    automated: {prune: true, selfHeal: true}

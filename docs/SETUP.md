@@ -56,8 +56,8 @@ Copy `.env.example` to `.env`. Only read when `MODEL_PROVIDER=real` (any value o
 | vLLM | `VLLM_BASE_URL` | `providers/openai_compat.py` | e.g. `http://localhost:8000/v1`; counted by `bootstrap.sh` |
 | SGLang | `SGLANG_BASE_URL` | same | e.g. `http://localhost:30000/v1`; counted by `bootstrap.sh` |
 | Langfuse | `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY` | `bootstrap.sh` check; compose init | Used to build `LANGFUSE_AUTH` |
-| | `LANGFUSE_AUTH` | OTel Collector (`observability/otel-collector.yaml`) | `printf '%s:%s' "$LANGFUSE_PUBLIC_KEY" "$LANGFUSE_SECRET_KEY" \| base64 -w0`; compose default matches local keys |
-| | `LANGFUSE_AUTH` | `observability/otel-collector.yaml` | base64(public:secret); exporter endpoint fixed to `http://langfuse-web:3000/api/public/otel`, edit for Langfuse Cloud |
+| | `LANGFUSE_AUTH` | OTel Collector (`infra/observability/otel-collector.yaml`) | `printf '%s:%s' "$LANGFUSE_PUBLIC_KEY" "$LANGFUSE_SECRET_KEY" \| base64 -w0`; compose default matches local keys |
+| | `LANGFUSE_AUTH` | `infra/observability/otel-collector.yaml` | base64(public:secret); exporter endpoint fixed to `http://langfuse-web:3000/api/public/otel`, edit for Langfuse Cloud |
 | GitHub | `GITHUB_TOKEN` | `adcp.config` -> `rollback/github.py` | Issue scope on `GITHUB_REPO` (default `jahnavi-yelamanchi/agent-deploy-control-plane`); unset -> issues written to `runs/issues/*.md` |
 
 Other runtime vars (`BACKEND`, `MLFLOW_TRACKING_URI`, `KAFKA_BOOTSTRAP`, `FLAGD_HOST`, `OTEL_EXPORTER_OTLP_ENDPOINT`, `PROMETHEUS_URL`, `ADCP_SPEC_ALIAS`, `ADCP_ROLLBACK_RULE`, `ADCP_ROLLBACK_INTERVAL_S`): see `.env.example`, `src/adcp/config.py`, `src/adcp/rollback/service.py`.
@@ -100,7 +100,7 @@ Neither module has a `backend` block; add one before a shared apply.
 
 ```bash
 export AWS_PROFILE=<profile> AWS_REGION=us-east-1
-cd terraform/aws
+cd infra/terraform/aws
 # add: terraform { backend "s3" {} } to versions.tf
 terraform init -backend-config="bucket=<state-bucket>" -backend-config="key=adcp/eks.tfstate" -backend-config="region=$AWS_REGION"
 terraform plan -out tfplan -var "region=$AWS_REGION"   # also: bedrock_model_arns, eks_oidc_thumbprint, enable_gpu_pool
@@ -108,14 +108,14 @@ terraform apply tfplan
 aws eks update-kubeconfig --name "$(terraform output -raw cluster_name)"
 ```
 
-Copy outputs into `deploy/kustomize/overlays/aws/agent-runtime-values.yaml`: `runtime_role_arn` -> `serviceAccount.awsRoleArn`, `ecr_repository_url` -> `image.repository`, `mlflow_artifact_bucket`.
+Copy outputs into `infra/deploy/kustomize/overlays/aws/agent-runtime-values.yaml`: `runtime_role_arn` -> `serviceAccount.awsRoleArn`, `ecr_repository_url` -> `image.repository`, `mlflow_artifact_bucket`.
 
 ### Azure (AKS, workload identity, ACR, Azure OpenAI, AI Foundry)
 
 ```bash
 az login
 export ARM_SUBSCRIPTION_ID=<subscription> TF_VAR_tenant_id=<tenant>
-cd terraform/azure
+cd infra/terraform/azure
 # add: terraform { backend "azurerm" {} } to versions.tf
 terraform init -backend-config="resource_group_name=<rg>" -backend-config="storage_account_name=<sa>" -backend-config="container_name=tfstate" -backend-config="key=adcp/aks.tfstate"
 terraform plan -out tfplan
@@ -123,9 +123,9 @@ terraform apply tfplan
 az aks get-credentials -g "$(terraform output -raw resource_group)" -n "$(terraform output -raw cluster_name)"
 ```
 
-Copy outputs into `deploy/kustomize/overlays/azure/agent-runtime-values.yaml`: `runtime_client_id` -> `serviceAccount.azureClientId`, `acr_login_server` -> `image.repository`, `openai_endpoint` -> `AZURE_OPENAI_ENDPOINT`, `openai_deployment` -> `AZURE_OPENAI_DEPLOYMENT`.
+Copy outputs into `infra/deploy/kustomize/overlays/azure/agent-runtime-values.yaml`: `runtime_client_id` -> `serviceAccount.azureClientId`, `acr_login_server` -> `image.repository`, `openai_endpoint` -> `AZURE_OPENAI_ENDPOINT`, `openai_deployment` -> `AZURE_OPENAI_DEPLOYMENT`.
 
-Then point Argo CD at the overlay (`deploy/argocd/root.yaml`) and push the image to ECR / ACR.
+Then point Argo CD at the overlay (`infra/deploy/argocd/root.yaml`) and push the image to ECR / ACR.
 
 ## GitHub Actions settings
 

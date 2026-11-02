@@ -1,0 +1,46 @@
+# promtool test rules infra/observability/prometheus/tests/slo_test.yml
+rule_files:
+  - ../rules/slo-generated.yml
+  - ../rules/recording.yml
+evaluation_interval: 1m
+tests:
+  # 10% errors vs 0.5% budget = 20x burn -> page (1h&5m > 14.4).
+  - interval: 1m
+    input_series:
+      - series: 'adcp_runs_total{status="ok",track="stable"}'
+        values: '0+90x120'
+      - series: 'adcp_runs_total{status="error",track="stable"}'
+        values: '0+10x120'
+    alert_rule_test:
+      - eval_time: 90m
+        alertname: AgentRuntimeAvailabilityBurnPage
+        exp_alerts:
+          - exp_labels:
+              category: availability
+              severity: page
+              sloth_severity: page
+              sloth_id: agent-runtime-availability
+              sloth_service: agent-runtime
+              sloth_slo: availability
+              owner: platform
+              repo: agent-deploy-control-plane
+            exp_annotations:
+              summary: Agent run error budget is burning too fast.
+              description: agent-runtime/availability SLO 99.5% burning error budget (14.4x over 1h&5m, 6x over 6h&30m).
+    promql_expr_test:
+      - expr: adcp:error_ratio:rate5m
+        eval_time: 30m
+        exp_samples:
+          - labels: 'adcp:error_ratio:rate5m{track="stable"}'
+            value: 0.09999999999999999
+  # No errors: SLI is 0, not absent.
+  - interval: 1m
+    input_series:
+      - series: 'adcp_runs_total{status="ok",track="stable"}'
+        values: '0+100x60'
+    promql_expr_test:
+      - expr: slo:burn_rate:5m{sloth_slo="availability"}
+        eval_time: 30m
+        exp_samples:
+          - labels: 'slo:burn_rate:5m{owner="platform",repo="agent-deploy-control-plane",sloth_id="agent-runtime-availability",sloth_service="agent-runtime",sloth_slo="availability",sloth_window="5m"}'
+            value: 0

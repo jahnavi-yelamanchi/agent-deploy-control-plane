@@ -34,7 +34,7 @@ set_file=()
 [[ -f "$FLAGS" ]] && set_file=(--set-file "flagd.flagsJson=$FLAGS")
 
 log "helm: agent-runtime"
-chart=deploy/helm/agent-runtime
+chart=infra/deploy/helm/agent-runtime
 run helm lint "$chart" "${set_file[@]}"
 for args in \
   "" \
@@ -47,23 +47,23 @@ for args in \
 done
 
 log "helm: rollback-controller"
-run helm lint deploy/helm/rollback-controller
-helm template rollback-controller deploy/helm/rollback-controller -n agents | check || fail=1
+run helm lint infra/deploy/helm/rollback-controller
+helm template rollback-controller infra/deploy/helm/rollback-controller -n agents | check || fail=1
 
-for o in deploy/kustomize/overlays/*/; do
+for o in infra/deploy/kustomize/overlays/*/; do
   log "kustomize: $o"
   kustomize build "$o" | check || fail=1
 done
 
-for k in deploy/argocd deploy/istio chaos/litmus; do
+for k in infra/deploy/argocd infra/deploy/istio infra/chaos/litmus; do
   log "kustomize: $k"
   kustomize build "$k" | check || fail=1
 done
 
-log "raw: deploy/serving deploy/kind"
-for f in deploy/serving/*/*.yaml deploy/kind/*.yaml; do
+log "raw: infra/deploy/serving infra/deploy/kind"
+for f in infra/deploy/serving/*/*.yaml infra/deploy/kind/*.yaml; do
   case "$f" in
-    deploy/kind/*) python3 -c 'import sys,yaml; yaml.safe_load(open(sys.argv[1])); print("ok", sys.argv[1])' "$f" || fail=1 ;;
+    infra/deploy/kind/*) python3 -c 'import sys,yaml; yaml.safe_load(open(sys.argv[1])); print("ok", sys.argv[1])' "$f" || fail=1 ;;
     *) check < "$f" || fail=1 ;;
   esac
 done

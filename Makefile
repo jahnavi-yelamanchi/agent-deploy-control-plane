@@ -20,8 +20,8 @@ bootstrap: ## flip from mock to real providers (reads .env)
 lint: ## ruff + promtool
 	$(UV) run ruff check src tests scripts evals
 	$(UV) run ruff format --check src tests scripts evals
-	@command -v promtool >/dev/null && promtool check rules observability/prometheus/rules/*.yml \
-	  && (cd observability/prometheus && promtool test rules tests/slo_test.yml) || echo "promtool not found; skipped"
+	@command -v promtool >/dev/null && promtool check rules infra/observability/prometheus/rules/*.yml \
+	  && (cd infra/observability/prometheus && promtool test rules tests/slo_test.yml) || echo "promtool not found; skipped"
 
 typecheck: ## mypy
 	$(UV) run mypy
@@ -69,12 +69,12 @@ validate-k8s: ## helm lint + kubeconform + kustomize build
 	./scripts/validate_k8s.sh
 
 plan-aws: ## terraform init/validate/test(plan with mock providers) for EKS
-	cd terraform/aws && terraform init -backend=false -input=false && terraform validate && terraform test
+	cd infra/terraform/aws && terraform init -backend=false -input=false && terraform validate && terraform test
 
 plan-azure: ## terraform init/validate/test(plan with mock providers) for AKS
-	cd terraform/azure && terraform init -backend=false -input=false && terraform validate && terraform test
+	cd infra/terraform/azure && terraform init -backend=false -input=false && terraform validate && terraform test
 
-slo-rules: ## generate Prometheus rules from slo/slo.yaml
+slo-rules: ## generate Prometheus rules from infra/slo/slo.yaml
 	$(PY) scripts/gen_slo_rules.py
 
 chaos: ## chaos suite: MTTD / MTTR

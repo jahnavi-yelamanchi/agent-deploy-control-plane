@@ -12,7 +12,7 @@
 | `make matrix rollout chaos report finops` | `runs/*.jsonl`, `results/results.md`, `results/summary.md`, `results/cost_vs_quality.png`, `results/finops.md` |
 | `make plan-aws`, `make plan-azure` | `init -backend=false`, `validate`, `terraform test` (mock providers, `command = plan`) pass |
 | `make validate-k8s` | helm lint, helm template x4 value sets, kubeconform -strict with upstream + CRD catalog schemas, 7 kustomize builds |
-| `docker compose -f compose/docker-compose.yaml config -q` | passes (daemon not required) |
+| `docker compose -f infra/compose/docker-compose.yaml config -q` | passes (daemon not required) |
 | GitHub Actions | `ci` (python, terraform x2, kubernetes, prometheus), `eval-gate` (Inspect AI, promptfoo), `release` (gate, MLflow register, image build, values bump artifact) green on push to main. `nightly-eval` not yet triggered (schedule). |
 
 ## Not executed here

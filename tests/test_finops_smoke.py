@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_tf_parse_and_cluster_table(tmp_path):
-    v = parse_tf_variables(ROOT / "terraform" / "aws")
+    v = parse_tf_variables(ROOT / "infra" / "terraform" / "aws")
     assert v["cpu_node_pool"]["instance_type"]
     prices = yaml.safe_load(INFRA_PRICES.read_text())
     pools = node_pools("azure", prices)

@@ -29,7 +29,7 @@ azure:
     Standard_NC24ads_A100_v4: 3.673
   extras:
     azurerm_container_registry: 0.0274  # Standard SKU, $20/month
-# Fallback node pools when terraform/ is missing or unparsable.
+# Fallback node pools when infra/terraform/ is missing or unparsable.
 default_pools:
   aws:
     cpu: {instance_type: m6i.xlarge, count: 3}

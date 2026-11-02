@@ -133,7 +133,7 @@ class InMemorySource:
 
 
 class PrometheusSource:
-    """Reads the `adcp:*` recording rules (observability/prometheus/rules/recording.yml)."""
+    """Reads the `adcp:*` recording rules (infra/observability/prometheus/rules/recording.yml)."""
 
     QUERIES = {
         "cost_per_task": "adcp:cost_per_task:rate5m",

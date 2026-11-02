@@ -36,7 +36,7 @@ Mock provider; numbers are synthetic. Full table (69 rows): [results/results.md]
 | Events | run, eval, rollback events | Kafka API (Redpanda) |
 | Feature flags | gate tools per rollout step | OpenFeature + flagd |
 | Observability | traces, metrics, logs | OpenTelemetry (GenAI semconv), OTel Collector, Prometheus, Grafana, Tempo, Loki, Langfuse |
-| SLOs | cost, latency, quality budgets | `slo/slo.yaml` -> burn-rate alerts, error budgets |
+| SLOs | cost, latency, quality budgets | `infra/slo/slo.yaml` -> burn-rate alerts, error budgets |
 | CI | lint, tests, eval gate, release | GitHub Actions, Inspect AI, promptfoo, uv |
 | Delivery | GitOps canary rollout | Argo CD, Argo Rollouts (canary, blue-green), Helm, Kustomize |
 | Traffic | weighted canary split | Istio VirtualService / DestinationRule |
@@ -115,7 +115,7 @@ All rows land in `runs/*.jsonl`; `make report` rebuilds `results/results.md` and
 - Rollout TTD / MTTD / MTTR are simulated seconds from `adcp.rollout.sim` (driving the real harness and controller), not wall-clock cluster time.
 - Keys needed for real runs: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GOOGLE_API_KEY`, `AWS_REGION` + AWS credentials, `AZURE_OPENAI_ENDPOINT` / `AZURE_AI_ENDPOINT` + Entra identity (`AZURE_CLIENT_ID`, `AZURE_TENANT_ID`), `VLLM_BASE_URL`, `SGLANG_BASE_URL`, `LANGFUSE_PUBLIC_KEY` / `LANGFUSE_SECRET_KEY` / `LANGFUSE_AUTH`, `GITHUB_TOKEN`. See [docs/SETUP.md](docs/SETUP.md).
 - Cloud: nothing applied. Terraform is `validate` + `terraform test` (plan against mock providers) only. No cluster or containers were started in the build environment; images were not built or pushed. K8s manifests checked with `helm lint`, `kustomize build`, kubeconform.
-- Helm chart versions in `deploy/argocd/apps/*.yaml` and `scripts/up.sh` (Argo CD 7.7.11, Argo Rollouts 2.38.0, Istio 1.30.7, kube-prometheus-stack 66.3.1, Tempo 1.14.0, Loki 6.24.0, Langfuse 1.2.14, KServe v0.14.1, OpenFeature Operator v0.8.5) were pinned from memory where chart repos were unreachable.
+- Helm chart versions in `infra/deploy/argocd/apps/*.yaml` and `scripts/up.sh` (Argo CD 7.7.11, Argo Rollouts 2.38.0, Istio 1.30.7, kube-prometheus-stack 66.3.1, Tempo 1.14.0, Loki 6.24.0, Langfuse 1.2.14, KServe v0.14.1, OpenFeature Operator v0.8.5) were pinned from memory where chart repos were unreachable.
 
 Architecture: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Setup and keys: [docs/SETUP.md](docs/SETUP.md). Keyword map: [docs/KEYWORD_MAP.md](docs/KEYWORD_MAP.md). Status and gaps: [docs/STATUS.md](docs/STATUS.md).
 

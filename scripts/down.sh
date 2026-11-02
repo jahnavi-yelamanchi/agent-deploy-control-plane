@@ -8,8 +8,8 @@ if command -v kind >/dev/null && kind get clusters 2>/dev/null | grep -qx "$CLUS
   kind delete cluster --name "$CLUSTER"
 fi
 if [[ "${KEEP_VOLUMES:-0}" == 1 ]]; then
-  docker compose -f compose/docker-compose.yaml --profile gpu --profile console down --remove-orphans
+  docker compose -f infra/compose/docker-compose.yaml --profile gpu --profile console down --remove-orphans
 else
-  docker compose -f compose/docker-compose.yaml --profile gpu --profile console down -v --remove-orphans
+  docker compose -f infra/compose/docker-compose.yaml --profile gpu --profile console down -v --remove-orphans
 fi
 echo "down: done"

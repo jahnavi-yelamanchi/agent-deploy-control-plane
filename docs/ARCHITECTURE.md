@@ -123,14 +123,14 @@ Per-objective `equal` band: max(tolerance, 3 x combined standard error). Toleran
 | `src/adcp/rollback/metrics_source.py` | `PrometheusSource` (recording rules), `InMemorySource` (runs/evals, standard errors) |
 | `src/adcp/rollback/argo.py`, `github.py`, `service.py` | Rollout status patches; issue client (dry run writes `runs/issues/*.md`); FastAPI :8090 |
 | `src/adcp/rollout/sim.py`, `experiments.py` | Simulated canary / blue-green over the real harness; canary weight + rule experiments |
-| `src/adcp/chaos/faults.py`, `scripts/chaos_suite.py`, `chaos/litmus/` | Degrade prompt, add latency, kill tool; MTTD/MTTR; Litmus pod-delete, network latency |
+| `src/adcp/chaos/faults.py`, `scripts/chaos_suite.py`, `infra/chaos/litmus/` | Degrade prompt, add latency, kill tool; MTTD/MTTR; Litmus pod-delete, network latency |
 | `src/adcp/demo.py` | `make demo-local`: v1 -> production, v2-bad -> rollback, v3 -> needs_human |
 | `src/adcp/finops/` | Token cost, price tables, AKS vs EKS report |
-| `deploy/helm/agent-runtime/` | Rollout (canary / blueGreen), AnalysisTemplates, VirtualService, DestinationRule, services, HPA |
-| `deploy/helm/rollback-controller/` | Controller + online evaluator deployments, RBAC for rollouts patch |
-| `deploy/argocd/`, `deploy/kustomize/` | App-of-apps; local / aws / azure overlays |
-| `deploy/istio/`, `deploy/serving/` | Gateway, mTLS, telemetry; Ray Serve vLLM, KServe, SGLang |
-| `observability/`, `slo/`, `scripts/gen_slo_rules.py` | Collector, Prometheus rules, Grafana dashboards, Tempo, Loki; SLO -> burn-rate rules |
-| `terraform/aws/`, `terraform/azure/` | EKS + IRSA + ECR + S3; AKS + workload identity + ACR + Azure OpenAI + AI Foundry |
-| `compose/`, `deploy/kind/`, `scripts/up.sh`, `scripts/demo.sh` | Local data plane + observability; kind cluster; cluster demo |
+| `infra/deploy/helm/agent-runtime/` | Rollout (canary / blueGreen), AnalysisTemplates, VirtualService, DestinationRule, services, HPA |
+| `infra/deploy/helm/rollback-controller/` | Controller + online evaluator deployments, RBAC for rollouts patch |
+| `infra/deploy/argocd/`, `infra/deploy/kustomize/` | App-of-apps; local / aws / azure overlays |
+| `infra/deploy/istio/`, `infra/deploy/serving/` | Gateway, mTLS, telemetry; Ray Serve vLLM, KServe, SGLang |
+| `infra/observability/`, `infra/slo/`, `scripts/gen_slo_rules.py` | Collector, Prometheus rules, Grafana dashboards, Tempo, Loki; SLO -> burn-rate rules |
+| `infra/terraform/aws/`, `infra/terraform/azure/` | EKS + IRSA + ECR + S3; AKS + workload identity + ACR + Azure OpenAI + AI Foundry |
+| `infra/compose/`, `infra/deploy/kind/`, `scripts/up.sh`, `scripts/demo.sh` | Local data plane + observability; kind cluster; cluster demo |
 | `.github/workflows/` | `ci`, `eval-gate`, `release`, `nightly-eval` |

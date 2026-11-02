@@ -9,7 +9,7 @@ cd "$(dirname "$0")/.."
 
 CTX=${CTX:-kind-adcp}
 NS=agents
-CHART=deploy/helm/agent-runtime
+CHART=infra/deploy/helm/agent-runtime
 TAG=${TAG:-dev}
 TRAFFIC_SECONDS=${TRAFFIC_SECONDS:-240}
 export MODEL_PROVIDER=mock MLFLOW_TRACKING_URI=${MLFLOW_TRACKING_URI:-http://localhost:5000}

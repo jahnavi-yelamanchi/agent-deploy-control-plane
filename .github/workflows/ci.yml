@@ -32,13 +32,13 @@ jobs:
         with:
           terraform_version: 1.9.8
       - run: terraform fmt -check -recursive
-        working-directory: terraform/${{ matrix.cloud }}
+        working-directory: infra/terraform/${{ matrix.cloud }}
       - run: terraform init -backend=false -input=false
-        working-directory: terraform/${{ matrix.cloud }}
+        working-directory: infra/terraform/${{ matrix.cloud }}
       - run: terraform validate
-        working-directory: terraform/${{ matrix.cloud }}
+        working-directory: infra/terraform/${{ matrix.cloud }}
       - run: terraform test
-        working-directory: terraform/${{ matrix.cloud }}
+        working-directory: infra/terraform/${{ matrix.cloud }}
   kubernetes:
     runs-on: ubuntu-latest
     steps:
@@ -56,6 +56,6 @@ jobs:
       - run: |
           curl -sSL https://github.com/prometheus/prometheus/releases/download/v3.1.0/prometheus-3.1.0.linux-amd64.tar.gz \
             | tar xz --strip-components=1 -C /usr/local/bin prometheus-3.1.0.linux-amd64/promtool
-      - run: promtool check rules observability/prometheus/rules/*.yml
+      - run: promtool check rules infra/observability/prometheus/rules/*.yml
       - run: promtool test rules tests/slo_test.yml
-        working-directory: observability/prometheus
+        working-directory: infra/observability/prometheus

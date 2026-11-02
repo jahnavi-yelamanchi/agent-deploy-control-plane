@@ -5,7 +5,7 @@
 1. Per-deploy token cost: every specs/*.yaml on the frozen task set (mock provider) ->
    cost/task, cost per 1k tasks, tokens, cache hit rate, eval score.
 2. AKS vs EKS monthly cluster cost: node pools from `terraform output -json node_pools` when
-   state exists, else terraform/{aws,azure}/variables.tf defaults x infra_prices.yaml. `infracost breakdown --format json` replaces the static
+   state exists, else infra/terraform/{aws,azure}/variables.tf defaults x infra_prices.yaml. `infracost breakdown --format json` replaces the static
    totals when the binary is on PATH and succeeds.
 """
 
@@ -85,7 +85,7 @@ def tf_output_pools(tf_dir: Path) -> list[Pool] | None:
 
 
 def node_pools(
-    cloud: str, prices: dict[str, Any], tf_root: Path = ROOT / "terraform"
+    cloud: str, prices: dict[str, Any], tf_root: Path = ROOT / "infra" / "terraform"
 ) -> list[Pool]:
     if (applied := tf_output_pools(tf_root / cloud)) is not None:
         return applied
@@ -115,7 +115,7 @@ def node_pools(
 
 
 def extras(
-    cloud: str, prices: dict[str, Any], tf_root: Path = ROOT / "terraform"
+    cloud: str, prices: dict[str, Any], tf_root: Path = ROOT / "infra" / "terraform"
 ) -> dict[str, float]:
     """Hourly price of flat-rate resources present in the terraform dir."""
     text = (
@@ -147,7 +147,7 @@ def infracost_total(path: Path) -> float | None:
 
 
 def cluster_table(
-    prices: dict[str, Any], tf_root: Path = ROOT / "terraform"
+    prices: dict[str, Any], tf_root: Path = ROOT / "infra" / "terraform"
 ) -> tuple[str, dict[str, float]]:
     h = prices["hours_per_month"]
     rows = [
@@ -224,7 +224,10 @@ def deploy_table(specs_dir: Path, skip_runs: bool = False) -> tuple[str, list[di
 
 
 def build(
-    specs_dir: Path, out: Path, skip_runs: bool = False, tf_root: Path = ROOT / "terraform"
+    specs_dir: Path,
+    out: Path,
+    skip_runs: bool = False,
+    tf_root: Path = ROOT / "infra" / "terraform",
 ) -> str:
     prices = yaml.safe_load(INFRA_PRICES.read_text())
     deploy_md, deploys = deploy_table(specs_dir, skip_runs)

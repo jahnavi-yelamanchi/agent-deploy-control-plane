@@ -8,8 +8,8 @@ cd "$(dirname "$0")/.."
 CLUSTER=${CLUSTER:-adcp}
 IMAGE=${IMAGE:-ghcr.io/jahnavi-yelamanchi/agent-runtime:dev}
 CTX="kind-$CLUSTER"
-COMPOSE=(docker compose -f compose/docker-compose.yaml)
-# Pinned to match deploy/argocd/apps/*.yaml.
+COMPOSE=(docker compose -f infra/compose/docker-compose.yaml)
+# Pinned to match infra/deploy/argocd/apps/*.yaml.
 ARGOCD_CHART=7.7.11
 ROLLOUTS_CHART=2.38.0
 ISTIO_CHART=1.30.7
@@ -23,7 +23,7 @@ kubectl argo rollouts version >/dev/null 2>&1 || echo "note: kubectl-argo-rollou
 
 # 1. cluster
 if ! kind get clusters | grep -qx "$CLUSTER"; then
-  kind create cluster --name "$CLUSTER" --config deploy/kind/kind-config.yaml
+  kind create cluster --name "$CLUSTER" --config infra/deploy/kind/kind-config.yaml
 fi
 kubectl config use-context "$CTX"
 
@@ -79,7 +79,7 @@ helm upgrade --install loki grafana/loki --version "$LOKI_CHART" -n monitoring \
   --set loki.useTestSchema=true --wait
 
 # 5. GitOps: namespaces, AppProject, app-of-apps root (local overlay values)
-kubectl apply -k deploy/kustomize/overlays/local
+kubectl apply -k infra/deploy/kustomize/overlays/local
 kubectl -n argocd wait --for=jsonpath='{.status.sync.status}'=Synced application/adcp-root --timeout=10m || true
 
 cat <<MSG
