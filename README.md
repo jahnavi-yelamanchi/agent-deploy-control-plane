@@ -136,8 +136,8 @@ Measured per arm: task success, eval score, cost/task, p50/p95 latency, tool err
 | Model | Claude Sonnet, Claude Haiku, GPT-5, Gemini 2.5 Pro, Llama 3.1 8B on vLLM, Qwen 2.5 7B on SGLang (`specs/matrix/*.yaml`) | `make eval` (one spec); matrix: `uv run python -m adcp.evals.matrix --only models` |
 | Prompt caching | on / off on v1 | `uv run python -m adcp.evals.matrix --only caching` |
 | Context | full / summarized / retrieved on v1 | `uv run python -m adcp.evals.matrix --only context` |
-| Canary first step | 10% vs 25%, v1 -> v2-bad; time to detect, canary requests before decision | `uv run python -m adcp.rollout.experiments` |
-| Rollback rule | Pareto vs naive thresholds (and naive + noise band) on v2-bad, v3-tradeoff, v1-copy, v1-vs-v1 noise; false rollbacks | `uv run python -m adcp.rollout.experiments` |
+| Canary first step | 10% vs 25%, v1 -> v2-bad; time to detect, canary requests before decision | `make rollout` |
+| Rollback rule | Pareto vs naive thresholds (and naive + noise band) on v2-bad, v3-tradeoff, v1-copy, v1-vs-v1 noise; false rollbacks | `make rollout` |
 | Chaos | degrade_prompt, add_latency, kill_tool on canary; MTTD / MTTR | `make chaos`; cluster: `chaos/litmus/` |
 | Gate | v1 / v2 / v3 vs `evals/gate.yaml` floors | `make eval-gate`, `make promptfoo` |
 | End-to-end | v1 -> production, v2-bad -> rollback, v3-tradeoff -> needs_human | `make demo-local` (in-process), `make demo` (kind) |
