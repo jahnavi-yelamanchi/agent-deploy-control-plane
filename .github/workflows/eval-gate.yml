@@ -2,7 +2,7 @@ name: eval-gate
 on:
   push:
     branches: [main]
-    paths: ["specs/**", "src/**", "evals/**", "flags/**"]
+    paths: ["specs/**", "src/**", "evals/**", "flags/**", ".github/workflows/eval-gate.yml"]
 permissions:
   contents: read
 env:
