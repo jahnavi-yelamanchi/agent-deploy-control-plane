@@ -1,4 +1,4 @@
-"""runs/*.jsonl -> results/results.md (one table) + results/cost_vs_quality.png.
+"""runs/*.jsonl -> results/results.md (full table), results/summary.md (README tables),\nresults/cost_vs_quality.png.
 
     python scripts/report.py [--runs runs] [--out results]
 
@@ -102,70 +102,149 @@ def pareto_front(points: list[tuple[float, float]]) -> list[tuple[float, float]]
     return front
 
 
+# Distinct configurations for the plot and the README summary. Duplicates of v1 (models:sonnet,
+# caching:cache-on, context:ctx-summarized) and of v3 (models:haiku) are folded into one point.
+# (experiment, variant, label, group, label offset in points)
+CONFIGS = (
+    ("offline", "v1", "v1: Sonnet", "release", (10, 6)),
+    ("offline", "v2", "v2-bad", "release", (-10, 8)),
+    ("offline", "v3", "v3: Haiku", "release", (10, -14)),
+    ("models", "gpt-5", "GPT-5", "model", (-10, 6)),
+    ("models", "gemini-2.5-pro", "Gemini 2.5 Pro", "model", (10, -2)),
+    ("models", "llama-3.1-8b", "Llama 3.1 8B (vLLM)", "model", (10, -14)),
+    ("models", "qwen2.5-7b", "Qwen 2.5 7B (SGLang)", "model", (10, 4)),
+    ("caching", "cache-off", "v1, caching off", "variant", (0, -20)),
+    ("context", "ctx-retrieved", "v1, retrieved context", "variant", (-10, -12)),
+)
+GROUPS = (  # categorical slots 1-3 in fixed order; marker is secondary encoding
+    ("release", "Release spec (v1 / v2-bad / v3)", PALETTE[0], "o"),
+    ("model", "Same prompt, other model", PALETTE[1], "s"),
+    ("variant", "v1 with one setting changed", PALETTE[2], "D"),
+)
+
+
+def _configs(rows: list[dict[str, Any]]) -> list[tuple[dict[str, Any], str, str, tuple[int, int]]]:
+    by_key = {(r["experiment"], r["variant"]): r for r in rows}
+    out = []
+    for exp, variant, label, group, offset in CONFIGS:
+        r = by_key.get((exp, variant))
+        if r and r.get("cost_per_task") is not None and r.get("eval_score") is not None:
+            out.append((r, label, group, offset))
+    return out
+
+
 def render_plot(rows: list[dict[str, Any]], path: Path) -> int:
-    pts = [
-        r for r in rows if r.get("cost_per_task") is not None and r.get("eval_score") is not None
-    ]
-    fig, ax = plt.subplots(figsize=(12, 7.5), dpi=100)
+    from matplotlib.ticker import FuncFormatter
+
+    pts = _configs(rows)
+    plt.rcParams.update({"font.size": 12})
+    fig, ax = plt.subplots(figsize=(10, 6.2), dpi=150)
     fig.patch.set_facecolor(SURFACE)
     ax.set_facecolor(SURFACE)
-    experiments = list(dict.fromkeys(r["experiment"] for r in pts))
-    for i, exp in enumerate(experiments):
-        sub = [r for r in pts if r["experiment"] == exp]
+    front = pareto_front([(r["cost_per_task"], r["eval_score"]) for r, *_ in pts])
+    if len(front) > 1:
+        ax.plot(*zip(*front, strict=True), color=MUTED, lw=1.5, ls=(0, (4, 3)), zorder=2)
+        (x0, y0), (x1, y1) = front[len(front) // 2 - 1], front[len(front) // 2]
+        ax.annotate(
+            "Pareto front",
+            ((x0 * x1) ** 0.5, (y0 + y1) / 2),  # segment midpoint on the log-x axis
+            xytext=(0, 12),
+            textcoords="offset points",
+            ha="center",
+            fontsize=10,
+            color=MUTED,
+        )
+    for key, name, color, marker in GROUPS:
+        sub = [(r, label, off) for r, label, g, off in pts if g == key]
+        if not sub:
+            continue
         ax.scatter(
-            [r["cost_per_task"] for r in sub],
-            [r["eval_score"] for r in sub],
-            s=80,
-            marker=MARKERS[i % len(MARKERS)],
-            color=PALETTE[i % len(PALETTE)],
+            [r["cost_per_task"] for r, *_ in sub],
+            [r["eval_score"] for r, *_ in sub],
+            s=110,
+            marker=marker,
+            color=color,
             edgecolor=SURFACE,
             linewidth=2,
-            label=exp,
+            label=name,
             zorder=3,
         )
-    # one label per coincident point (e.g. v1 == sonnet == cache-on)
-    groups: dict[tuple[float, float], list[str]] = {}
-    for r in pts:
-        c, q = r["cost_per_task"], r["eval_score"]
-        key = next(
-            (k for k in groups if abs(k[1] - q) < 0.004 and abs(c - k[0]) <= 0.05 * max(c, k[0])),
-            (c, q),
-        )
-        groups.setdefault(key, []).append(r["variant"])
-    for (cost, score), names in groups.items():
-        names = list(dict.fromkeys(names))
-        text = "\n".join(", ".join(names[i : i + 3]) for i in range(0, len(names), 3))
-        ax.annotate(
-            text,
-            (cost, score),
-            xytext=(8, -4),
-            textcoords="offset points",
-            fontsize=9,
-            color=MUTED,
-            va="top",
-        )
-    front = pareto_front([(r["cost_per_task"], r["eval_score"]) for r in pts])
-    if len(front) > 1:
-        ax.plot(*zip(*front, strict=True), color=INK, lw=1.5, ls="--", zorder=2, label="Pareto")
-    costs = [r["cost_per_task"] for r in pts if r["cost_per_task"] > 0]
-    if costs and max(costs) / min(costs) > 20:
-        ax.set_xscale("log")
-    ax.set_xlabel("cost per task (USD)", color=INK)
-    ax.set_ylabel("eval score (0-1)", color=INK)
-    ax.set_title("Cost vs quality, frozen eval set (mock provider)", color=INK, loc="left")
-    ax.grid(True, color=GRID, lw=0.8)
+        for r, label, (dx, dy) in sub:
+            ax.annotate(
+                label,
+                (r["cost_per_task"], r["eval_score"]),
+                xytext=(dx, dy),
+                textcoords="offset points",
+                ha="center" if dx == 0 else ("left" if dx > 0 else "right"),
+                va="center",
+                fontsize=11,
+                color=INK,
+            )
+    ax.set_xscale("log")
+    ax.xaxis.set_major_formatter(FuncFormatter(lambda v, _: f"${v:g}"))
+    ax.set_xlim(3e-5, 4e-2)
+    ax.set_ylim(0.77, 0.945)
+    ax.set_xlabel("Cost per task, USD (log scale)", color=INK)
+    ax.set_ylabel("Eval score (0-1)", color=INK)
+    ax.set_title("Cost vs quality per configuration", color=INK, loc="left", fontsize=15, pad=24)
+    ax.text(
+        0,
+        1.02,
+        "50 frozen tau-bench-style tasks, mock provider (synthetic). Up and left is better.",
+        transform=ax.transAxes,
+        fontsize=10,
+        color=MUTED,
+    )
+    ax.grid(True, which="major", color=GRID, lw=0.8)
+    ax.minorticks_off()
     for side in ("top", "right"):
         ax.spines[side].set_visible(False)
     for side in ("left", "bottom"):
         ax.spines[side].set_color(MUTED)
     ax.tick_params(colors=MUTED)
-    if pts:
-        ax.legend(frameon=False, loc="upper left", fontsize=9)
+    ax.legend(frameon=False, loc="upper left", fontsize=10)
     fig.tight_layout()
     path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(path, facecolor=SURFACE, metadata={"Software": None})
     plt.close(fig)
     return len(pts)
+
+
+def render_summary(rows: list[dict[str, Any]]) -> str:
+    """Two short tables for the README; full table stays in results.md."""
+    lines = [
+        "| Config | Eval score | Success | Cost/task | p95 | Cache hit |",
+        "|---|---:|---:|---:|---:|---:|",
+    ]
+    for r, label, _, _ in _configs(rows):
+        lines.append(
+            f"| {label} | {fmt(r.get('eval_score'), '{:.3f}')} | "
+            f"{fmt(r.get('task_success'), '{:.2f}')} | {fmt(r.get('cost_per_task'), '${:.5f}')} | "
+            f"{fmt((r.get('p95_latency_ms') or 0) / 1000, '{:.1f} s')} | "
+            f"{fmt(r.get('cache_hit_rate'), '{:.2f}')} |"
+        )
+    by_key = {(r["experiment"], r["variant"]): r for r in rows}
+
+    def ttd(exp: str, variant: str) -> str:
+        return fmt((by_key.get((exp, variant)) or {}).get("time_to_detect_s"), "{:.0f} s")
+
+    def fr(rule: str) -> str:
+        return fmt((by_key.get(("rollback_rule", rule)) or {}).get("false_rollbacks"), "{}")
+
+    n = (by_key.get(("rollback_rule", "pareto")) or {}).get("n", "-")
+    lines += [
+        "",
+        "| Rollout experiment | Result |",
+        "|---|---|",
+        f"| Time to detect v2-bad, first canary step 10% / 25% | "
+        f"{ttd('canary_weight', 'first_step_10')} / {ttd('canary_weight', 'first_step_25')} |",
+        f"| False rollbacks over {n} candidates: Pareto / thresholds + noise band / fixed "
+        f"thresholds | {fr('pareto')} / {fr('naive_se')} / {fr('naive')} |",
+        f"| Chaos time to detect: degraded prompt / +1500 ms latency / killed tool | "
+        f"{ttd('chaos', 'degrade_prompt')} / {ttd('chaos', 'add_latency_1500ms')} / "
+        f"{ttd('chaos', 'kill_tool_get_order')}-{ttd('chaos', 'kill_tool_get_reservation')} |",
+    ]
+    return "\n".join(lines) + "\n"
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -177,6 +256,7 @@ def main(argv: list[str] | None = None) -> int:
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     (out / "results.md").write_text(render_markdown(rows))
+    (out / "summary.md").write_text(render_summary(rows))
     n = render_plot(rows, out / "cost_vs_quality.png")
     print(f"{len(rows)} rows -> {out / 'results.md'}; {n} points -> {out / 'cost_vs_quality.png'}")
     return 0

@@ -9,7 +9,7 @@
 | `make lint`, `make typecheck` | ruff clean, mypy clean (60 files), promtool 3.1.0 `check rules` (88 rules) + `test rules` pass |
 | `make eval-gate` | Inspect AI over 50 frozen tasks with `mockllm/model`; v1, v2-bad, v3 pass offline thresholds |
 | `make promptfoo` | 10/10 cases on v1 (promptfoo 0.103.5, `--no-write`) |
-| `make matrix rollout chaos report finops` | `runs/*.jsonl`, `results/results.md`, `results/cost_vs_quality.png`, `results/finops.md` |
+| `make matrix rollout chaos report finops` | `runs/*.jsonl`, `results/results.md`, `results/summary.md`, `results/cost_vs_quality.png`, `results/finops.md` |
 | `make plan-aws`, `make plan-azure` | `init -backend=false`, `validate`, `terraform test` (mock providers, `command = plan`) pass |
 | `make validate-k8s` | helm lint, helm template x4 value sets, kubeconform -strict with upstream + CRD catalog schemas, 7 kustomize builds |
 | `docker compose -f compose/docker-compose.yaml config -q` | passes (daemon not required) |
