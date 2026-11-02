@@ -13,12 +13,12 @@
 | `make plan-aws`, `make plan-azure` | `init -backend=false`, `validate`, `terraform test` (mock providers, `command = plan`) pass |
 | `make validate-k8s` | helm lint, helm template x4 value sets, kubeconform -strict with upstream + CRD catalog schemas, 7 kustomize builds |
 | `docker compose -f compose/docker-compose.yaml config -q` | passes (daemon not required) |
-| GitHub Actions `ci` | green on push to main |
+| GitHub Actions | `ci` (python, terraform x2, kubernetes, prometheus), `eval-gate` (Inspect AI, promptfoo), `release` (gate, MLflow register, image build, values bump artifact) green on push to main. `nightly-eval` not yet triggered (schedule). |
 
 ## Not executed here
 
 - `make up`, `make demo`: no Docker daemon, no kind cluster. Compose, kind, Argo CD, Argo Rollouts, Istio, LitmusChaos, Ray Serve, KServe, SGLang assets written and validated statically only.
-- Docker image never built locally; `release.yml` builds it in Actions, pushes only with `PUSH_IMAGE=true`.
+- Docker image not built locally; built successfully in `release.yml` on GitHub Actions, not pushed (`PUSH_IMAGE` unset).
 - OTel Collector, Tempo, Loki configs YAML-parsed only (otelcol-contrib download blocked).
 - RayService and Litmus kinds have no kubeconform schema; skipped, not validated.
 - `terraform apply` never run. No backend block; add one before applying.
