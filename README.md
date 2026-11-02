@@ -2,6 +2,74 @@
 
 Prompt + model + tool manifest as one versioned, deployable artifact (`AgentSpec`): eval gate in CI, canary on Kubernetes with cost/latency/quality SLOs, multi-objective (Pareto) auto-rollback.
 
+## Run it
+
+Needs Python 3.12+, [uv](https://docs.astral.sh/uv/) and `make`. Steps 1-5 need no API keys, no Docker and no cloud account: model calls are replayed from recorded fixtures (`MODEL_PROVIDER=mock`).
+
+**1. Install** (about 1 min). Creates `.venv` with runtime, eval and dev dependencies from `uv.lock`.
+
+```bash
+make install
+```
+
+**2. Run the whole loop** (about 20 s). Registers v1 in a local MLflow registry and promotes it to production. Sends v2-bad (degraded prompt, caching off) through the eval gate to a 10% canary. The rollback controller sees it is worse than stable on cost and latency, rolls it back and marks it `rolled_back`. Then v3 (Haiku: cheaper and faster, lower score) goes to canary and is paused as needs-human, with a GitHub issue body written to `runs/issues/`.
+
+```bash
+make demo-local
+```
+
+Expected tail of the output:
+
+```text
+Decisions
+  rollout      decision     verdicts (cost/p95/score)     TTD    TTR
+  v2-bad       rollback     worse/worse/equal            105s   110s
+  v3-tradeoff  needs_human  better/better/worse          450s      -
+Registry: v1=production, v2=rolled_back, v3=canary
+```
+
+**3. Run the tests** (about 30 s). One smoke test per package plus an end-to-end deploy -> eval -> canary -> rollback test.
+
+```bash
+make test
+```
+
+**4. Reproduce the results below.** `eval-gate` runs the Inspect AI suite on the 50 frozen tasks and fails if a spec is under the thresholds in `evals/gate.yaml`. `matrix`, `rollout` and `chaos` rerun the experiments into `runs/*.jsonl`; `report` redraws the plot and tables in `results/`.
+
+```bash
+make eval-gate
+```
+
+```bash
+make matrix rollout chaos report
+```
+
+**5. Check the infrastructure without a cloud account.** Terraform `validate` plus a plan against mock providers for EKS and AKS (nothing is applied), then `helm lint`, kubeconform and `kustomize build` on every manifest.
+
+```bash
+make plan-aws plan-azure validate-k8s
+```
+
+**6. Full stack on a local cluster** (needs Docker; not run in the build environment). `make up` starts kind with Argo CD, Argo Rollouts, Istio, Prometheus/Grafana/Tempo/Loki, Langfuse, MLflow, Postgres, Redis, Redpanda, flagd and the runtime. `make demo` runs the same loop against the real Rollout.
+
+```bash
+make up
+```
+
+```bash
+make demo
+```
+
+**7. Real models.** Copy `.env.example` to `.env` and add keys, then `make bootstrap` installs the provider SDKs and switches `MODEL_PROVIDER` to `real`. Key list: [docs/SETUP.md](docs/SETUP.md).
+
+```bash
+make bootstrap
+```
+
+`make help` lists every target.
+
+## Results
+
 ![cost vs quality](results/cost_vs_quality.png)
 
 <!-- results:start -->
@@ -25,6 +93,8 @@ Prompt + model + tool manifest as one versioned, deployable artifact (`AgentSpec
 
 Mock provider; numbers are synthetic. Full table (69 rows): [results/results.md](results/results.md).
 <!-- results:end -->
+
+## Layers
 
 | Layer | What | Tech |
 |---|---|---|
@@ -90,7 +160,7 @@ Measured per arm: task success, eval score, cost/task, p50/p95 latency, tool err
 
 All rows land in `runs/*.jsonl`; `make report` rebuilds `results/results.md` and `results/cost_vs_quality.png`.
 
-## Results
+## Findings
 
 - v2-bad vs v1: cost/task 5.0x ($0.01932 vs $0.00384), p95 +31.5% (7102 vs 5400 ms), eval -0.123 (0.801 vs 0.924), cache hit 0.00 vs 0.92. Dominated on all three objectives.
 - v2-bad clears the offline gate (`evals/gate.yaml`: eval >= 0.75, success >= 0.60, cost <= $0.05, p95 <= 15000 ms); only the canary comparison against stable catches it.
@@ -118,33 +188,3 @@ All rows land in `runs/*.jsonl`; `make report` rebuilds `results/results.md` and
 - Helm chart versions in `infra/deploy/argocd/apps/*.yaml` and `scripts/up.sh` (Argo CD 7.7.11, Argo Rollouts 2.38.0, Istio 1.30.7, kube-prometheus-stack 66.3.1, Tempo 1.14.0, Loki 6.24.0, Langfuse 1.2.14, KServe v0.14.1, OpenFeature Operator v0.8.5) were pinned from memory where chart repos were unreachable.
 
 Architecture: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Setup and keys: [docs/SETUP.md](docs/SETUP.md). Keyword map: [docs/KEYWORD_MAP.md](docs/KEYWORD_MAP.md). Status and gaps: [docs/STATUS.md](docs/STATUS.md).
-
-## Run
-
-```bash
-make install
-```
-
-```bash
-make demo-local
-```
-
-```bash
-make test
-```
-
-```bash
-make eval-gate
-```
-
-```bash
-make up && make demo
-```
-
-```bash
-make plan-aws
-```
-
-```bash
-make plan-azure
-```
