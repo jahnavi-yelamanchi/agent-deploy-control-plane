@@ -103,19 +103,21 @@ class AzureOpenAIProvider(OpenAIProvider):
         if self._client is None:
             import openai
 
-            common = {
-                "azure_endpoint": os.environ["AZURE_OPENAI_ENDPOINT"],
-                "api_version": os.getenv("AZURE_OPENAI_API_VERSION", "2025-04-01-preview"),
-            }
+            endpoint = os.environ["AZURE_OPENAI_ENDPOINT"]
+            version = os.getenv("AZURE_OPENAI_API_VERSION", "2025-04-01-preview")
             if key := os.getenv("AZURE_OPENAI_API_KEY"):  # local dev; AKS uses workload identity
-                self._client = openai.AsyncAzureOpenAI(api_key=key, **common)
+                self._client = openai.AsyncAzureOpenAI(
+                    azure_endpoint=endpoint, api_version=version, api_key=key
+                )
             else:
                 from azure.identity import DefaultAzureCredential, get_bearer_token_provider
 
                 token = get_bearer_token_provider(
                     DefaultAzureCredential(), "https://cognitiveservices.azure.com/.default"
                 )
-                self._client = openai.AsyncAzureOpenAI(azure_ad_token_provider=token, **common)
+                self._client = openai.AsyncAzureOpenAI(
+                    azure_endpoint=endpoint, api_version=version, azure_ad_token_provider=token
+                )
         return self._client
 
     def body(self, req: ModelRequest) -> dict[str, Any]:
