@@ -245,7 +245,7 @@ tools:
 context_strategy: full
 params:
   temperature: null
-  max_tokens: 1024
+  max_tokens: 8192
   prompt_caching: false
   max_steps: 8
   timeout_s: 30.0

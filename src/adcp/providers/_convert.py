@@ -69,6 +69,8 @@ def anthropic_messages(messages: list[Message]) -> list[dict[str, Any]]:
                 out[-1]["content"].append(block)
             else:
                 out.append({"role": "user", "content": [block]})
+        elif m.role == "assistant" and m.raw:
+            out.append({"role": "assistant", "content": m.raw})  # unchanged, thinking included
         elif m.role == "assistant":
             blocks: list[dict[str, Any]] = []
             if m.content:

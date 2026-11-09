@@ -61,7 +61,8 @@ def test_real_adapters_against_sdks() -> None:
         sent["anthropic"] = json.loads(r.content)
         return httpx2.Response(200, json={
             "id": "m", "type": "message", "role": "assistant", "model": "claude-haiku-5-5",
-            "content": [{"type": "tool_use", "id": "t", "name": "verify_identity", "input": {}}],
+            "content": [{"type": "thinking", "thinking": "", "signature": "sig"},
+                        {"type": "tool_use", "id": "t", "name": "verify_identity", "input": {}}],
             "stop_reason": "tool_use", "stop_sequence": None,
             "usage": {"input_tokens": 10, "output_tokens": 5, "cache_read_input_tokens": 90},
         })  # fmt: skip
@@ -87,3 +88,7 @@ def test_real_adapters_against_sdks() -> None:
     assert ra.message.tool_calls[0].name == ro.message.tool_calls[0].name == "verify_identity"
     assert ra.usage.cache_read_tokens == 90 and ro.usage.cache_read_tokens == 80
     assert "temperature" not in sent["anthropic"] and "max_completion_tokens" in sent["openai"]
+    from adcp.providers._convert import anthropic_messages
+
+    resent = anthropic_messages([ra.message])[0]["content"]  # thinking goes back unchanged
+    assert resent[0] == {"type": "thinking", "thinking": "", "signature": "sig"}

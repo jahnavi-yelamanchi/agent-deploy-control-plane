@@ -23,6 +23,9 @@ class Message(BaseModel):
     tool_calls: list[ToolCall] = Field(default_factory=list)
     tool_call_id: str | None = None
     name: str | None = None
+    raw: list[dict[str, Any]] | None = (
+        None  # provider-native blocks (e.g. Claude thinking), resent as-is
+    )
 
 
 class Usage(BaseModel):

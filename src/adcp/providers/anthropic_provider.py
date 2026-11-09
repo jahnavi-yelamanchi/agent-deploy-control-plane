@@ -52,7 +52,9 @@ def parse_anthropic_response(resp: Any) -> tuple[Message, Usage]:
         cache_read_tokens=getattr(u, "cache_read_input_tokens", 0) or 0,
         cache_write_tokens=getattr(u, "cache_creation_input_tokens", 0) or 0,
     )
-    return Message(role="assistant", content="\n".join(text), tool_calls=calls), usage
+    raw = [b.model_dump(mode="json", exclude_none=True) for b in resp.content]
+    msg = Message(role="assistant", content="\n".join(text), tool_calls=calls, raw=raw)
+    return msg, usage
 
 
 class AnthropicProvider:
