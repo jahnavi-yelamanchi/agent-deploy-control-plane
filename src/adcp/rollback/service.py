@@ -20,7 +20,8 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Annotated, Any
 
-from fastapi import Body, FastAPI
+import httpx
+from fastapi import Body, FastAPI, HTTPException
 
 from adcp.config import get_settings
 from adcp.rollback.argo import SA_DIR, ArgoRolloutsClient, DryRunArgoClient, RolloutsClient
@@ -119,7 +120,12 @@ async def decide(body: Annotated[dict[str, Any] | None, Body()] = None) -> dict[
             policy,
         )
         return comp.model_dump(mode="json")
-    rec = await ctrl.step()
+    try:
+        rec = await ctrl.step()
+    except httpx.HTTPError as e:  # no metrics -> no action; never roll back blind
+        raise HTTPException(
+            503, f"metrics source unreachable ({get_settings().prometheus_url}): {e}"
+        ) from e
     return rec.event()
 
 
