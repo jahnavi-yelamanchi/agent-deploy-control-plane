@@ -139,3 +139,20 @@ Then point Argo CD at the overlay (`infra/deploy/argocd/root.yaml`) and push the
 | `GITHUB_TOKEN` | built-in | `release.yml` | GHCR login (`packages: write`) |
 
 `NIGHTLY_PROVIDER=real` also needs provider keys mapped from secrets into the job env and `uv sync --extra providers`; `nightly-eval.yml` does neither yet.
+
+## First real run (Claude, on a laptop)
+
+Cost: Haiku over 50 tasks well under $1; Sonnet a few dollars.
+
+```bash
+git clone https://github.com/jahnavi-yelamanchi/agent-deploy-control-plane.git && cd agent-deploy-control-plane
+make install
+cp .env.example .env    # set ANTHROPIC_API_KEY=...
+make bootstrap          # installs provider SDKs, sets MODEL_PROVIDER=real in .env
+set -a; source .env; set +a
+uv run adcp run --spec specs/v3-tradeoff.yaml --task airline-001
+uv run python -m adcp.evals.runner --spec specs/v3-tradeoff.yaml --context full --out runs/real.jsonl --experiment real --variant haiku
+uv run python -m adcp.evals.runner --spec specs/v1.yaml --context full --out runs/real.jsonl --experiment real --variant sonnet
+```
+
+`--context full` keeps history append-only: newer Claude models can reject edited earlier turns, and edits break prompt caching. `--limit N` runs the first N tasks.

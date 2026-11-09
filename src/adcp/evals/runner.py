@@ -1,7 +1,7 @@
 """Offline eval: run every frozen task through the harness, print metrics, append a runs/ row.
 
     python -m adcp.evals.runner --spec specs/v1.yaml [--tasks evals/frozen/v1/tasks.jsonl] \
-        [--out runs/offline.jsonl] [--experiment offline] [--variant v1]
+        [--out runs/offline.jsonl] [--experiment offline] [--variant v1] [--context full] [--limit N]
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ from typing import Any
 
 from adcp.env.tasks import Task, load_tasks
 from adcp.evals.metrics import Pair, aggregate, append_rows, make_row
-from adcp.spec import AgentSpec
+from adcp.spec import AgentSpec, ContextStrategy
 from adcp.types import Track
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -74,9 +74,13 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--out", default="runs/offline.jsonl")
     ap.add_argument("--experiment", default="offline")
     ap.add_argument("--variant", default=None)
+    ap.add_argument("--context", choices=[c.value for c in ContextStrategy], default=None)
+    ap.add_argument("--limit", type=int, default=None, help="first N tasks only")
     args = ap.parse_args(argv)
     spec = AgentSpec.from_yaml(args.spec)
-    tasks = load_tasks(args.tasks or default_tasks_path())
+    if args.context:
+        spec = spec.model_copy(update={"context_strategy": ContextStrategy(args.context)})
+    tasks = load_tasks(args.tasks or default_tasks_path())[: args.limit]
     _, metrics = evaluate_spec(spec, tasks)
     row = make_row(metrics, experiment=args.experiment, variant=args.variant, spec=spec)
     append_rows(args.out, [row])
