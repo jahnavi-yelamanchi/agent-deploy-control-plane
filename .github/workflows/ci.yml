@@ -15,7 +15,7 @@ jobs:
         with:
           python-version: "3.13"
           enable-cache: true
-      - run: uv sync --extra dev --extra evals
+      - run: uv sync --extra dev --extra evals --extra providers
       - run: uv run ruff check src tests scripts evals
       - run: uv run ruff format --check src tests scripts evals
       - run: uv run mypy

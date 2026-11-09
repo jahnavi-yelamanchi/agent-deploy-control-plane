@@ -39,3 +39,51 @@ def test_anthropic_request_shape() -> None:
     assert body["system"][0]["cache_control"] == {"type": "ephemeral"}
     assert body["tools"][-1]["cache_control"] == {"type": "ephemeral"}
     assert "temperature" not in body and "thinking" not in body
+
+
+def test_real_adapters_against_sdks() -> None:
+    """Anthropic + OpenAI adapters through the real SDKs; only the HTTP reply is faked."""
+    import json
+
+    import pytest
+
+    anthropic = pytest.importorskip("anthropic")
+    openai = pytest.importorskip("openai")
+    httpx = pytest.importorskip("httpx")
+    httpx2 = pytest.importorskip("httpx2")
+    from adcp.providers.anthropic_provider import AnthropicProvider
+    from adcp.providers.openai_compat import OpenAIProvider
+
+    req = _req(AgentSpec.from_yaml("specs/v1.yaml"))
+    sent: dict[str, dict] = {}
+
+    def anth(r):  # type: ignore[no-untyped-def]
+        sent["anthropic"] = json.loads(r.content)
+        return httpx2.Response(200, json={
+            "id": "m", "type": "message", "role": "assistant", "model": "claude-haiku-5-5",
+            "content": [{"type": "tool_use", "id": "t", "name": "verify_identity", "input": {}}],
+            "stop_reason": "tool_use", "stop_sequence": None,
+            "usage": {"input_tokens": 10, "output_tokens": 5, "cache_read_input_tokens": 90},
+        })  # fmt: skip
+
+    def oai(r):  # type: ignore[no-untyped-def]
+        sent["openai"] = json.loads(r.content)
+        return httpx.Response(200, json={
+            "id": "c", "object": "chat.completion", "created": 1, "model": "gpt-5",
+            "choices": [{"index": 0, "finish_reason": "tool_calls", "message": {
+                "role": "assistant", "content": None, "tool_calls": [{"id": "c1", "type": "function",
+                "function": {"name": "verify_identity", "arguments": "{}"}}]}}],
+            "usage": {"prompt_tokens": 100, "completion_tokens": 5,
+                      "prompt_tokens_details": {"cached_tokens": 80}},
+        })  # fmt: skip
+
+    a = AnthropicProvider(client=anthropic.AsyncAnthropic(
+        api_key="x", base_url="http://t",
+        http_client=httpx2.AsyncClient(transport=httpx2.MockTransport(anth))))  # fmt: skip
+    o = OpenAIProvider(client=openai.AsyncOpenAI(
+        api_key="x", base_url="http://t/v1",
+        http_client=httpx.AsyncClient(transport=httpx.MockTransport(oai))))  # fmt: skip
+    ra, ro = asyncio.run(a.generate(req)), asyncio.run(o.generate(req))
+    assert ra.message.tool_calls[0].name == ro.message.tool_calls[0].name == "verify_identity"
+    assert ra.usage.cache_read_tokens == 90 and ro.usage.cache_read_tokens == 80
+    assert "temperature" not in sent["anthropic"] and "max_completion_tokens" in sent["openai"]
