@@ -8,7 +8,8 @@ cd "$(dirname "$0")/.."
 CLUSTER=${CLUSTER:-adcp}
 IMAGE=${IMAGE:-ghcr.io/jahnavi-yelamanchi/agent-runtime:dev}
 CTX="kind-$CLUSTER"
-COMPOSE=(docker compose -f infra/compose/docker-compose.yaml)
+ENVF=(); [[ -f .env ]] && ENVF=(--env-file .env)
+COMPOSE=(docker compose "${ENVF[@]}" -f infra/compose/docker-compose.yaml)
 # Pinned to match infra/deploy/argocd/apps/*.yaml.
 ARGOCD_CHART=7.7.11
 ROLLOUTS_CHART=2.38.0
@@ -19,6 +20,9 @@ LOKI_CHART=6.24.0
 
 need() { command -v "$1" >/dev/null || { echo "missing: $1" >&2; exit 1; }; }
 for b in docker kind kubectl helm; do need "$b"; done
+docker info >/dev/null 2>&1 || { echo "Docker is not running. Start Docker Desktop and retry." >&2; exit 1; }
+mem_gb=$(( $(docker info --format '{{.MemTotal}}') / 1024 / 1024 / 1024 ))
+(( mem_gb >= 12 )) || echo "warning: Docker has ${mem_gb} GB RAM; the full stack wants 12+ (Docker Desktop > Settings > Resources). Try 'make up-lite' first."
 kubectl argo rollouts version >/dev/null 2>&1 || echo "note: kubectl-argo-rollouts plugin not found (needed by demo.sh)"
 
 # 1. cluster
@@ -78,7 +82,20 @@ helm upgrade --install loki grafana/loki --version "$LOKI_CHART" -n monitoring \
   --set singleBinary.replicas=1 --set read.replicas=0 --set write.replicas=0 --set backend.replicas=0 \
   --set loki.useTestSchema=true --wait
 
-# 5. GitOps: namespaces, AppProject, app-of-apps root (local overlay values)
+# 5. provider keys from .env -> Secret read by runtime + rollback controller (never committed)
+kubectl create namespace agents --dry-run=client -o yaml | kubectl apply -f -
+if [[ -f .env ]]; then
+  set -a; source .env; set +a
+  args=(--from-literal=MODEL_PROVIDER="${MODEL_PROVIDER:-mock}")
+  for k in ANTHROPIC_API_KEY OPENAI_API_KEY GOOGLE_API_KEY GITHUB_TOKEN; do
+    [[ -n "${!k:-}" ]] && args+=(--from-literal="$k=${!k}")
+  done
+  kubectl -n agents create secret generic agent-provider-keys "${args[@]}" \
+    --dry-run=client -o yaml | kubectl apply -f -
+  echo "secret agents/agent-provider-keys: MODEL_PROVIDER=${MODEL_PROVIDER:-mock}"
+fi
+
+# 6. GitOps: namespaces, AppProject, app-of-apps root (local overlay values)
 kubectl apply -k infra/deploy/kustomize/overlays/local
 kubectl -n argocd wait --for=jsonpath='{.status.sync.status}'=Synced application/adcp-root --timeout=10m || true
 

@@ -3,7 +3,12 @@
 name: adcp
 
 x-adcp-env: &adcp-env
-  MODEL_PROVIDER: mock
+  # From the repo-root .env (scripts pass --env-file .env); unset -> mock.
+  MODEL_PROVIDER: ${MODEL_PROVIDER:-mock}
+  ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+  OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+  GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
+  GITHUB_TOKEN: ${GITHUB_TOKEN:-}
   BACKEND: services
   ADCP_BACKEND: services
   MLFLOW_TRACKING_URI: http://mlflow:5000

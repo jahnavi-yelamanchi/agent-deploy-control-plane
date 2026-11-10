@@ -156,3 +156,18 @@ uv run python -m adcp.evals.runner --spec specs/v1.yaml --context full --out run
 ```
 
 `--context full` keeps history append-only: newer Claude models can reject edited earlier turns, and edits break prompt caching. `--limit N` runs the first N tasks.
+
+## Full flow on a laptop
+
+Credentials: `ANTHROPIC_API_KEY`; `GITHUB_TOKEN` (fine-grained, this repo only, Issues: read and write) for needs-human issues. Both go in `.env`. Langfuse, Grafana, MinIO, Postgres use local preset logins. No cloud account.
+
+Tools: Docker Desktop (12+ GB RAM, 6+ CPUs in Settings > Resources), `kind`, `kubectl`, `helm`, `kubectl-argo-rollouts`.
+
+| Stage | Command | Pass when |
+|---|---|---|
+| 1. Services, no Kubernetes | `make up-lite` | smoke prints `provider: anthropic`, `status: ok`; trace visible in Langfuse (localhost:3001) |
+| 2. Cluster + GitOps | `make up` | `kubectl argo rollouts get rollout agent-runtime -n agents` shows Healthy |
+| 3. Canary + rollback | `make demo` | v2-bad canary aborted, v3 needs-human issue opened on GitHub |
+| Tear down | `make down` | |
+
+`scripts/up.sh` turns `.env` into the `agents/agent-provider-keys` Secret; the runtime and rollback controller read it via `envFrom`. Without it they run on the mock provider.

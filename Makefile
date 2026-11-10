@@ -1,10 +1,14 @@
 SHELL := /bin/bash
--include .env
-export $(shell sed -n 's/^\([A-Z_][A-Z0-9_]*\)=.*/\1/p' .env 2>/dev/null)
+# .env -> exported vars; strips inline comments and trailing spaces (values must not contain spaces)
+ifneq (,$(wildcard .env))
+$(foreach kv,$(shell sed -n 's/^\([A-Z_][A-Z0-9_]*\)=\([^ #]*\).*/\1=\2/p' .env),$(eval export $(kv)))
+endif
 export MODEL_PROVIDER ?= mock
 UV ?= uv
 PY := $(UV) run python
 
+
+.PHONY: up-lite
 .PHONY: help install bootstrap lint typecheck test eval eval-gate promptfoo report demo-local demo up down \
         validate-k8s plan-aws plan-azure slo-rules chaos finops infracost fixtures freeze matrix rollout
 
@@ -58,6 +62,9 @@ demo-local: ## full deploy->eval->canary->rollback loop in-process with mocks
 
 demo: ## same loop against the kind cluster from `make up`
 	./scripts/demo.sh
+
+up-lite: ## stage 1: compose stack (data, observability, runtime) + one real request; no Kubernetes
+	./scripts/up-lite.sh
 
 up: ## kind + Argo CD + Rollouts + Istio + observability + data plane + runtime
 	./scripts/up.sh

@@ -69,8 +69,10 @@ agentSpec:
       max_cost_usd_per_run: 0.05
       max_latency_ms: 15000
 
+# Secret with MODEL_PROVIDER + ANTHROPIC_API_KEY etc. (scripts/up.sh). Missing -> mock provider.
+providerSecret: agent-provider-keys
+
 env:
-  MODEL_PROVIDER: mock
   BACKEND: services
   ADCP_BACKEND: services
   MLFLOW_TRACKING_URI: http://mlflow.data.svc:5000

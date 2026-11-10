@@ -42,6 +42,9 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
             - {name: http, containerPort: 8080, protocol: TCP}
+          envFrom:
+            # MODEL_PROVIDER + provider keys; created by scripts/up.sh from .env. Absent -> mock.
+            - secretRef: {name: {{ .Values.providerSecret }}, optional: true}
           env:
             - {name: AGENT_SPEC_PATH, value: /etc/adcp/spec.yaml}
             - {name: ADCP_TRACK_LABELS_FILE, value: /etc/podinfo/labels}

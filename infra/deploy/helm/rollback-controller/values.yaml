@@ -7,8 +7,10 @@ image:
 rolloutNamespace: agents
 rolloutName: agent-runtime
 
+# Secret with GITHUB_TOKEN (needs-human issues) + provider keys (scripts/up.sh). Optional.
+providerSecret: agent-provider-keys
+
 env:
-  MODEL_PROVIDER: mock
   BACKEND: services
   ADCP_BACKEND: services
   PROMETHEUS_URL: http://kube-prometheus-stack-prometheus.monitoring.svc:9090

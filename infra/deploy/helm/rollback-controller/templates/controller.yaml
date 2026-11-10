@@ -20,6 +20,8 @@ spec:
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           command: ["python", "-m", "adcp.rollback.service"]
+          envFrom:
+            - secretRef: {name: {{ .Values.providerSecret }}, optional: true}
           env:
             {{- include "rc.env" . | nindent 12 }}
             - {name: OTEL_SERVICE_NAME, value: rollback-controller}
