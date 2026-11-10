@@ -18,7 +18,7 @@ permissions:
   contents: read
   issues: write
 concurrency:
-  group: e2e
+  group: e2e-${{ inputs.stage }}
   cancel-in-progress: true
 jobs:
   e2e:
