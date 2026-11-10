@@ -1,5 +1,15 @@
 # Status
 
+## Next steps (resume here)
+
+1. **Unlock GitHub Actions.** Since Nov 9 every run fails in ~3 s: "The job was not started because your account is locked due to a billing issue." Fix at github.com/settings/billing (failed card or unpaid invoice; the repo is public, so minutes are free). Until then CI shows red.
+2. **Add the repo secret `ANTHROPIC_API_KEY`** (Settings > Secrets and variables > Actions).
+3. **Run the full flow online** with `.github/workflows/e2e.yml` (Actions > e2e > Run workflow), in this order: `lite/mock`, `full/mock`, `lite/real`, `full/real`. Never executed yet: `scripts/up-lite.sh`, `scripts/up.sh`, `scripts/demo.sh`, the compose stack and the Helm charts on a live cluster. Expect fixes; read the "Diagnostics" step on failure. The laptop has no free disk, so do not run Docker locally.
+4. **Explain the real tool error rate** (12.6% on Claude Haiku vs 1.5% mock). The runner keeps only totals: make it write per-task tool calls and errors, rerun Haiku (~3 cents), fix the cause.
+5. **Real run of the main spec** (`specs/v1.yaml`, Sonnet, `--context full`, ~$3-5) into `runs/real.jsonl` with `--experiment real --variant sonnet`; then `make report` and update the Results section of README.md (it now shows one real Haiku run; rollout and chaos numbers there are mock-based).
+6. **Optional:** `GITHUB_TOKEN` (fine-grained, this repo, Issues read/write) in `.env` for needs-human issues outside CI; CI uses the built-in token.
+7. **Launch notes:** pick a short project name; record a 20 s clip of the demo catching a bad version; first posts name the project, show one thing it does, link the repo.
+
 ## Works end to end locally (run in the build environment, MODEL_PROVIDER=mock)
 
 | Target | Result |
