@@ -15,3 +15,12 @@
 | Time to detect v2-bad, first canary step 10% / 25% | 97 s / 48 s |
 | False rollbacks over 13 candidates: Pareto / thresholds + noise band / fixed thresholds | 0 / 1 / 11 |
 | Chaos time to detect: degraded prompt / +1500 ms latency / killed tool | 134 s / 97 s / 44 s-70 s |
+
+| Haiku (v3), 50 tasks | Mock | Real Claude API |
+|---|---:|---:|
+| Eval score | 0.875 | 0.892 |
+| Success | 0.78 | 0.80 |
+| Cost/task | $0.00018 | $0.00064 |
+| p95 latency | 2778 ms | 6788 ms |
+| Cache hit | 0.92 | 0.81 |
+| Tool error rate | 0.015 | 0.126 |

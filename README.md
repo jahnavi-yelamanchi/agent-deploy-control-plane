@@ -91,7 +91,16 @@ make bootstrap
 | False rollbacks over 13 candidates: Pareto / thresholds + noise band / fixed thresholds | 0 / 1 / 11 |
 | Chaos time to detect: degraded prompt / +1500 ms latency / killed tool | 134 s / 97 s / 44 s-70 s |
 
-Mock provider; numbers are synthetic. Full table (69 rows): [results/results.md](results/results.md).
+| Haiku (v3), 50 tasks | Mock | Real Claude API |
+|---|---:|---:|
+| Eval score | 0.875 | 0.892 |
+| Success | 0.78 | 0.80 |
+| Cost/task | $0.00018 | $0.00064 |
+| p95 latency | 2778 ms | 6788 ms |
+| Cache hit | 0.92 | 0.81 |
+| Tool error rate | 0.015 | 0.126 |
+
+Colored points and the first two tables: mock provider, synthetic. Last table: one real run on the Claude API (Nov 2026). Full table: [results/results.md](results/results.md).
 <!-- results:end -->
 
 ## Layers
@@ -176,11 +185,13 @@ All rows land in `runs/*.jsonl`; `make report` rebuilds `results/results.md` and
 - Chaos (fault on canary, 5 seeds, MTTD / MTTR): degraded prompt 134 / 139 s, +1500 ms latency 97 / 102 s, killed get_reservation 70 / 75 s, killed get_order 44 / 49 s. MTTR = MTTD + 5 s simulated abort.
 - Demo: v2-bad rolled back at 10% after 105 s; v3-tradeoff marked needs-human at 25%, issue written to `runs/issues/`.
 
+- First real run (Claude Haiku 5.5, 50 tasks, `--context full`): eval 0.892, success 0.80, $0.00064 per task, p95 6.8 s, cache hit 0.81. The mock was close on quality (0.875) but 3.6x low on cost and 2.4x low on latency, and real tool errors were 8x higher (0.126 vs 0.015). Part of the token gap is context: the real run kept full history, the mock v3 run summarized it.
+
 <!-- findings -->
 
 ## Disclosed
 
-- Model outputs: all replayed synthetic fixtures (`src/adcp/providers/fixtures/mock/`); `MODEL_PROVIDER=mock` everywhere. Latency is simulated. Numbers are not provider benchmarks.
+- Model outputs: replayed synthetic fixtures (`src/adcp/providers/fixtures/mock/`), except one real Claude Haiku run in `runs/real.jsonl`. Mock latency is simulated; mock numbers are not provider benchmarks.
 - Token counts come from the real request shape; cost = tokens x `src/adcp/finops/prices.yaml`. Cache hits are simulated by prefix hash.
 - Rollout TTD / MTTD / MTTR are simulated seconds from `adcp.rollout.sim` (driving the real harness and controller), not wall-clock cluster time.
 - Keys needed for real runs: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GOOGLE_API_KEY`, `AWS_REGION` + AWS credentials, `AZURE_OPENAI_ENDPOINT` / `AZURE_AI_ENDPOINT` + Entra identity (`AZURE_CLIENT_ID`, `AZURE_TENANT_ID`), `VLLM_BASE_URL`, `SGLANG_BASE_URL`, `LANGFUSE_PUBLIC_KEY` / `LANGFUSE_SECRET_KEY` / `LANGFUSE_AUTH`, `GITHUB_TOKEN`. See [docs/SETUP.md](docs/SETUP.md).

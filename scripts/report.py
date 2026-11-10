@@ -144,13 +144,13 @@ def render_plot(rows: list[dict[str, Any]], path: Path) -> int:
     front = pareto_front([(r["cost_per_task"], r["eval_score"]) for r, *_ in pts])
     if len(front) > 1:
         ax.plot(*zip(*front, strict=True), color=MUTED, lw=1.5, ls=(0, (4, 3)), zorder=2)
-        (x0, y0), (x1, y1) = front[len(front) // 2 - 1], front[len(front) // 2]
+        (x0, y0), (x1, y1) = front[0], front[1]
         ax.annotate(
             "Pareto front",
             ((x0 * x1) ** 0.5, (y0 + y1) / 2),  # segment midpoint on the log-x axis
-            xytext=(0, 12),
+            xytext=(-10, 8),
             textcoords="offset points",
-            ha="center",
+            ha="right",
             fontsize=10,
             color=MUTED,
         )
@@ -180,6 +180,26 @@ def render_plot(rows: list[dict[str, Any]], path: Path) -> int:
                 fontsize=11,
                 color=INK,
             )
+    real = {(r["experiment"], r["variant"]): r for r in rows}.get(("real", "haiku"))
+    if real and real.get("cost_per_task") and real.get("eval_score") is not None:
+        ax.scatter(
+            [real["cost_per_task"]], [real["eval_score"]], s=360, marker="*",
+            color=INK, edgecolor=SURFACE, linewidth=1.5, zorder=4,
+            label="Measured on the real Claude API",
+        )  # fmt: skip
+        ax.annotate(
+            "v3: Haiku, real API", (real["cost_per_task"], real["eval_score"]),
+            xytext=(4, 16), textcoords="offset points", fontsize=11, color=INK,
+            fontweight="bold", ha="center",
+        )  # fmt: skip
+        mock = {(r["experiment"], r["variant"]): r for r in rows}.get(("offline", "v3"))
+        if mock:
+            ax.annotate(
+                "", (real["cost_per_task"], real["eval_score"]),
+                xytext=(mock["cost_per_task"], mock["eval_score"]),
+                arrowprops={"arrowstyle": "->", "color": MUTED, "lw": 1.2, "ls": ":",
+                            "shrinkA": 8, "shrinkB": 10},
+            )  # fmt: skip
     ax.set_xscale("log")
     ax.xaxis.set_major_formatter(FuncFormatter(lambda v, _: f"${v:g}"))
     ax.set_xlim(3e-5, 4e-2)
@@ -190,7 +210,7 @@ def render_plot(rows: list[dict[str, Any]], path: Path) -> int:
     ax.text(
         0,
         1.02,
-        "50 frozen tau-bench-style tasks, mock provider (synthetic). Up and left is better.",
+        "50 frozen tau-bench-style tasks. Colored points: mock provider (synthetic). Up and left is better.",
         transform=ax.transAxes,
         fontsize=10,
         color=MUTED,
@@ -244,6 +264,21 @@ def render_summary(rows: list[dict[str, Any]]) -> str:
         f"{ttd('chaos', 'degrade_prompt')} / {ttd('chaos', 'add_latency_1500ms')} / "
         f"{ttd('chaos', 'kill_tool_get_order')}-{ttd('chaos', 'kill_tool_get_reservation')} |",
     ]
+    real = by_key.get(("real", "haiku"))
+    mock = by_key.get(("offline", "v3"))
+    if real and mock:
+        rows_mr = (
+            ("Eval score", "eval_score", "{:.3f}"),
+            ("Success", "task_success", "{:.2f}"),
+            ("Cost/task", "cost_per_task", "${:.5f}"),
+            ("p95 latency", "p95_latency_ms", "{:.0f} ms"),
+            ("Cache hit", "cache_hit_rate", "{:.2f}"),
+            ("Tool error rate", "tool_error_rate", "{:.3f}"),
+        )
+        lines += ["", "| Haiku (v3), 50 tasks | Mock | Real Claude API |", "|---|---:|---:|"]
+        lines += [
+            f"| {name} | {fmt(mock.get(k), f)} | {fmt(real.get(k), f)} |" for name, k, f in rows_mr
+        ]
     return "\n".join(lines) + "\n"
 
 

@@ -36,7 +36,7 @@
 ## Known gaps
 
 - All model outputs are replayed synthetic fixtures; latency is simulated. Numbers compare configurations, not providers.
-- No real model call yet: a personal Anthropic key cannot be stored in this cloud session; real run is the laptop path in `docs/SETUP.md`. `deep_agent.py` (LangChain Deep Agents) not exercised; `deep` extra not installed.
+- One real model run so far: Claude Haiku 5.5 on all 50 tasks from a laptop (`runs/real.jsonl`). Sonnet, OpenAI, Gemini and open models still mock-only. Real tool error rate 0.126 not yet investigated (per-task logs not kept by the runner). `deep_agent.py` (LangChain Deep Agents) not exercised; `deep` extra not installed.
 - Helm chart versions for argo-cd 7.7.11, argo-rollouts 2.38.0, kube-prometheus-stack 66.3.1, tempo 1.14.0, loki 6.24.0, langfuse 1.2.14, open-feature-operator v0.8.5, kserve v0.14.1 pinned from memory (repos returned 403 via proxy); Langfuse chart values keys unverified. Istio 1.30.7 verified.
 - Container tags pinned, not pulled; `langfuse:3` is a major tag. MLflow container pip-installs psycopg2/boto3 at start.
 - In cluster the rollback controller reads Prometheus only; Prometheus gives no standard errors, so decisions use fixed tolerances (in-process sim uses z=3 noise band). `agent.evals` is consumed in-process only.
