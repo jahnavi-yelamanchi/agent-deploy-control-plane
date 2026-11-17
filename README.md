@@ -41,9 +41,9 @@ Architecture diagram: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 | Rollout experiment | Result |
 |---|---|
-| Time to detect a bad version, first canary step 10% / 25% | 97 s / 48 s |
+| Time to detect a bad version, first canary step 10% / 25% | 97s / 48s |
 | Wrong rollbacks over 13 candidate versions: Pareto rule / per-metric thresholds / fixed thresholds | 0 / 1 / 11 |
-| Time to detect injected faults: degraded prompt / +1.5 s latency / broken tool | 134 s / 97 s / 44–70 s |
+| Time to detect injected faults: degraded prompt / +1.5 s latency / broken tool | 134s / 97s / 44–70s |
 | Prompt caching off vs on (same quality) | 3.3× the cost |
 
 Colored points and the rollout experiments use the mock provider (recorded answers, simulated time). Full table: [results/results.md](results/results.md).
